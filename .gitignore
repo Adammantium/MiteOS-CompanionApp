@@ -1,0 +1,6 @@
+Application/build
+Application/release
+.idea
+.gradle
+.google
+build-cache/

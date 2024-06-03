@@ -15,7 +15,7 @@
 -->
 <resources>
 
-    <string name="app_name">Bluetooth Connection example</string>
+    <string name="app_name">MiteOS Companion</string>
     <string name="ble_not_supported">BLE is not supported</string>
 
     <string name="no_data">No data</string>

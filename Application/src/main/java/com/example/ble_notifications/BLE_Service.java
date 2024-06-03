@@ -176,8 +176,7 @@ public class BLE_Service extends Service {
         }
 
         Notification notification = new NotificationCompat.Builder(this.getApplicationContext(), CHANNEL_ID)
-                .setContentTitle("ESP32 Smartwatch")
-                .setContentText("BLE Server Up and Running")
+                .setContentTitle("MiteOS Companion Service")
                 .setSmallIcon(R.mipmap.ic_launcher)
                 .setContentIntent(pendingIntent)
                 .build();

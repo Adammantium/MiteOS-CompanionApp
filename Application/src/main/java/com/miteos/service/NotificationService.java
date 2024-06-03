@@ -1,4 +1,4 @@
-package com.example.ble_notifications;
+package com.miteos.service;
 
 import android.app.Notification;
 import android.content.BroadcastReceiver;
@@ -13,6 +13,9 @@ import android.text.SpannableString;
 import android.util.Log;
 
 import com.google.gson.Gson;
+
+import com.miteos.service.data.NotificationBundle;
+import com.miteos.service.data.NotificationList;
 
 /* Notification listener service
 handles obtaining the notifications from the android device and formats the results
@@ -42,8 +45,6 @@ public class NotificationService extends NotificationListenerService {
     @Override
     public void onCreate() {
         super.onCreate();
-
-        Log.e(TAG,"FML");
 
         nlServiceReceiver = new NLServiceReceiver();
         IntentFilter filter = new IntentFilter();

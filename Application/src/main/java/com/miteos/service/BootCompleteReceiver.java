@@ -1,4 +1,4 @@
-package com.example.ble_notifications;
+package com.miteos.service;
 
 import android.content.BroadcastReceiver;
 import android.content.Context;

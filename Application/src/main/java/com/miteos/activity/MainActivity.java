@@ -1,4 +1,4 @@
-package com.example.ble_notifications;
+package com.miteos.activity;
 
 import android.Manifest;
 import android.annotation.SuppressLint;
@@ -37,6 +37,10 @@ import android.widget.Toast;
 import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.view.ContextThemeWrapper;
 import androidx.core.app.ActivityCompat;
+
+import com.example.ble_notifications.R;
+import com.miteos.service.BLE_Service;
+import com.miteos.service.MainService;
 
 import java.util.ArrayList;
 import java.util.Locale;

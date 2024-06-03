@@ -1,7 +1,7 @@
-package com.example.ble_notifications;
+package com.miteos.service;
 
-import static com.example.ble_notifications.BLE_Service.UUID_READ_FROM_ESP;
-import static com.example.ble_notifications.BLE_Service.UUID_WRITE_TO_ESP;
+import static com.miteos.service.BLE_Service.UUID_READ_FROM_ESP;
+import static com.miteos.service.BLE_Service.UUID_WRITE_TO_ESP;
 
 import android.Manifest;
 import android.app.Service;
@@ -31,7 +31,10 @@ import androidx.annotation.Nullable;
 import androidx.core.app.ActivityCompat;
 import androidx.core.content.ContextCompat;
 
+import com.example.ble_notifications.R;
 import com.google.gson.Gson;
+import com.miteos.service.data.NotificationBundle;
+import com.miteos.service.gatt.SampleGattAttributes;
 
 import java.io.ByteArrayOutputStream;
 import java.util.ArrayList;

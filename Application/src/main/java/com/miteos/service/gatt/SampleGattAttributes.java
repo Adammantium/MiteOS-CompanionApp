@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package com.example.ble_notifications;
+package com.miteos.service.gatt;
 
 import java.util.HashMap;
 

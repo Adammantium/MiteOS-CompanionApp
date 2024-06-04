@@ -24,8 +24,8 @@ import android.util.Log;
 
 import androidx.core.app.NotificationCompat;
 
-import com.example.ble_notifications.R;
 import com.miteos.activity.MainActivity;
+import com.miteos.activity.R;
 import com.miteos.service.gatt.SampleGattAttributes;
 
 import java.util.List;

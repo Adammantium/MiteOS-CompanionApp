@@ -19,6 +19,9 @@ import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 import android.graphics.Matrix;
 import android.graphics.drawable.Drawable;
+import android.media.MediaMetadata;
+import android.media.session.MediaController;
+import android.media.session.MediaSessionManager;
 import android.os.Bundle;
 import android.os.IBinder;
 import android.preference.PreferenceManager;
@@ -31,10 +34,11 @@ import androidx.annotation.Nullable;
 import androidx.core.app.ActivityCompat;
 import androidx.core.content.ContextCompat;
 
-import com.example.ble_notifications.R;
+import com.miteos.activity.R;
 import com.google.gson.Gson;
 import com.miteos.service.data.NotificationBundle;
 import com.miteos.service.gatt.SampleGattAttributes;
+import com.miteos.service.handlers.MediaHandler;
 
 import java.io.ByteArrayOutputStream;
 import java.util.ArrayList;
@@ -55,6 +59,7 @@ public class MainService extends Service {
     // Commands from BT device
     private static final String GET_PACKAGE_ICON = "GET_PKG_ICON=";
     private static final String GET_NOTIFICATION_LIST = "GET_NOTIF_LIST=";
+    private static final String GET_PLAYBACK_INFO = "GET_PLAYBACK_INFO=";
 
     // Actions
     public final static String NOTIFICATION_ACTION = "com.example.NOTIFICATION_LISTENER_EXAMPLE";
@@ -69,7 +74,10 @@ public class MainService extends Service {
     private BluetoothGattCharacteristic mNotifyCharacteristic;
     private BluetoothGattCharacteristic mWriteCharacteristic;
 
+    public static MainService instance;
+
     public MainService() {
+        instance = this;
     }
 
     ///////////////////////
@@ -186,6 +194,8 @@ public class MainService extends Service {
                     Intent i = new Intent(GET_NOTIFICATION_INTENT);
                     i.putExtra("command", "list");
                     sendBroadcast(i);
+                }else if(s.startsWith(GET_PLAYBACK_INFO)) {
+                    sendData(new Gson().toJson(MediaHandler.getPlaybackInfos()));
                 } else {
                     Log.e(TAG, "Unknown command");
                 }

@@ -38,7 +38,7 @@ import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.view.ContextThemeWrapper;
 import androidx.core.app.ActivityCompat;
 
-import com.example.ble_notifications.R;
+import com.miteos.activity.R;
 import com.miteos.service.BLE_Service;
 import com.miteos.service.MainService;
 

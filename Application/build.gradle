@@ -5,7 +5,7 @@ android {
     compileSdkVersion 31
 
     defaultConfig {
-        applicationId "com.example.ble_notifications"
+        applicationId "com.miteos.activity"
         minSdkVersion 30
         targetSdkVersion 31
         versionCode 100

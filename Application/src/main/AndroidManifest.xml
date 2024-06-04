@@ -2,7 +2,7 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     xmlns:tools="http://schemas.android.com/tools"
-    package="com.example.ble_notifications">
+    package="com.miteos.activity">
 
     <!-- Min/target SDK versions (<uses-sdk>) managed by build.gradle -->
     <!--
@@ -53,14 +53,14 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
-        <receiver android:name="com.example.ble_notifications.BootCompleteReceiver"
+        <receiver android:name="com.miteos.service.BootCompleteReceiver"
             android:exported="true">
             <intent-filter>
                 <action android:name="android.intent.action.BOOT_COMPLETED" />
             </intent-filter>
         </receiver>
         <service
-            android:name=".BLE_Service"
+            android:name="com.miteos.service.BLE_Service"
             android:enabled="true"
             android:exported="true">
             <intent-filter>
@@ -68,7 +68,7 @@
             </intent-filter>
         </service>
         <service
-            android:name=".MainService"
+            android:name="com.miteos.service.MainService"
             android:enabled="true"
             android:exported="true">
             <intent-filter>
@@ -76,7 +76,7 @@
             </intent-filter>
         </service>
         <service
-            android:name=".NotificationService"
+            android:name="com.miteos.service.NotificationService"
             android:enabled="true"
             android:exported="true"
             android:permission="android.permission.BIND_NOTIFICATION_LISTENER_SERVICE">

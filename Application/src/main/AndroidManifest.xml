@@ -64,7 +64,7 @@
             android:enabled="true"
             android:exported="true">
             <intent-filter>
-                <action android:name="com.example.ble_notifications.START_BACKGROUND" />
+                <action android:name="com.miteos.activity.START_BACKGROUND" />
             </intent-filter>
         </service>
         <service
@@ -72,7 +72,7 @@
             android:enabled="true"
             android:exported="true">
             <intent-filter>
-                <action android:name="com.example.ble_notifications.START_BACKGROUND" />
+                <action android:name="com.miteos.activity.START_BACKGROUND" />
             </intent-filter>
         </service>
         <service
@@ -84,7 +84,7 @@
                 <action android:name="android.service.notification.NotificationListenerService" />
             </intent-filter>
             <intent-filter>
-                <action android:name="com.example.ble_notifications.START_BACKGROUND" />
+                <action android:name="com.miteos.activity.START_BACKGROUND" />
             </intent-filter>
         </service>
     </application>

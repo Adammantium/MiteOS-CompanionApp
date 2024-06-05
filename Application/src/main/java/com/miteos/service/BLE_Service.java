@@ -1,5 +1,6 @@
 package com.miteos.service;
 
+import android.Manifest;
 import android.app.Notification;
 import android.app.NotificationChannel;
 import android.app.NotificationManager;
@@ -18,10 +19,12 @@ import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
+import android.content.pm.PackageManager;
 import android.os.Binder;
 import android.os.IBinder;
 import android.util.Log;
 
+import androidx.core.app.ActivityCompat;
 import androidx.core.app.NotificationCompat;
 
 import com.miteos.activity.MainActivity;
@@ -54,17 +57,17 @@ public class BLE_Service extends Service {
     private static final int STATE_CONNECTED = 2;
 
     public final static String ACTION_GATT_CONNECTED =
-            "com.example.ble_notifications.ACTION_GATT_CONNECTED";
+            "com.miteos.activity.ACTION_GATT_CONNECTED";
     public final static String ACTION_GATT_CONNECTING =
-            "com.example.ble_notifications.ACTION_GATT_CONNECTING";
+            "com.miteos.activity.ACTION_GATT_CONNECTING";
     public final static String ACTION_GATT_DISCONNECTED =
-            "com.example.ble_notifications.ACTION_GATT_DISCONNECTED";
+            "com.miteos.activity.ACTION_GATT_DISCONNECTED";
     public final static String ACTION_GATT_SERVICES_DISCOVERED =
-            "com.example.ble_notifications.ACTION_GATT_SERVICES_DISCOVERED";
+            "com.miteos.activity.ACTION_GATT_SERVICES_DISCOVERED";
     public final static String ACTION_DATA_AVAILABLE =
-            "com.example.ble_notifications.ACTION_DATA_AVAILABLE";
+            "com.miteos.activity.ACTION_DATA_AVAILABLE";
     public final static String EXTRA_DATA =
-            "com.example.ble_notifications.EXTRA_DATA";
+            "com.miteos.activity.EXTRA_DATA";
 
     public final static UUID UUID_HEART_RATE_MEASUREMENT =
             UUID.fromString(SampleGattAttributes.MY_UUID);
@@ -92,7 +95,11 @@ public class BLE_Service extends Service {
 
                 broadcastUpdate(intentAction);
                 Log.i(TAG, "Connected to GATT server.");
-                // Attempts to discover services after successful connection.
+                
+                if (ActivityCompat.checkSelfPermission(MainService.instance, Manifest.permission.BLUETOOTH_CONNECT) != PackageManager.PERMISSION_GRANTED) {
+                    return;
+                }
+
                 Log.i(TAG, "Attempting to start service discovery:" + mBluetoothGatt.discoverServices());
             } else if (newState == BluetoothProfile.STATE_DISCONNECTED) {
                 intentAction = ACTION_GATT_DISCONNECTED;

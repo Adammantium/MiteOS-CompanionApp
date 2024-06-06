@@ -95,7 +95,7 @@ public class BLE_Service extends Service {
 
                 broadcastUpdate(intentAction);
                 Log.i(TAG, "Connected to GATT server.");
-                
+
                 if (ActivityCompat.checkSelfPermission(MainService.instance, Manifest.permission.BLUETOOTH_CONNECT) != PackageManager.PERMISSION_GRANTED) {
                     return;
                 }

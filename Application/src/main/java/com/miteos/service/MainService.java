@@ -195,6 +195,7 @@ public class MainService extends Service {
                     i.putExtra("command", "list");
                     sendBroadcast(i);
                 }else if(s.startsWith(GET_PLAYBACK_INFO)) {
+                    Log.e(TAG, new Gson().toJson(MediaHandler.getPlaybackInfos()));
                     sendData(new Gson().toJson(MediaHandler.getPlaybackInfos()));
                 } else {
                     Log.e(TAG, "Unknown command");

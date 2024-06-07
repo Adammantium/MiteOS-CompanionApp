@@ -121,15 +121,6 @@ public class MediaHandler {
         notificationManager.notify(1, notification);
         */
 
-        BitSet set = new BitSet(bits.length);
-        for (int i = 0; i < bits.length; i++) {
-            if (bits[i]) {
-                set.set(i);
-            }
-        }
-
-
-
         return Base64.getEncoder().encodeToString(toByteArray(bits));
     }
 

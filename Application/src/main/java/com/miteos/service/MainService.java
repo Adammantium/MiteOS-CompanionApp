@@ -62,8 +62,8 @@ public class MainService extends Service {
     private static final String GET_PLAYBACK_INFO = "GET_PLAYBACK_INFO=";
 
     // Actions
-    public final static String NOTIFICATION_ACTION = "com.example.NOTIFICATION_LISTENER_EXAMPLE";
-    public final static String GET_NOTIFICATION_INTENT = "com.example.NOTIFICATION_LISTENER_SERVICE_EXAMPLE";
+    public final static String NOTIFICATION_ACTION = "com.miteos.NOTIFICATION_LISTENER_EXAMPLE";
+    public final static String GET_NOTIFICATION_INTENT = "com.miteos.NOTIFICATION_LISTENER_SERVICE_EXAMPLE";
 
     // Global variables
     private boolean mConnected = false;
@@ -196,7 +196,7 @@ public class MainService extends Service {
                     sendBroadcast(i);
                 }else if(s.startsWith(GET_PLAYBACK_INFO)) {
                     Log.e(TAG, new Gson().toJson(MediaHandler.getPlaybackInfos()));
-                    sendData(new Gson().toJson(MediaHandler.getPlaybackInfos()));
+                    sendData(new Gson().toJson(MediaHandler.getPlaybackInfos()).replaceAll("[^\\x00-\\x7F]", ""));
                 } else {
                     Log.e(TAG, "Unknown command");
                 }

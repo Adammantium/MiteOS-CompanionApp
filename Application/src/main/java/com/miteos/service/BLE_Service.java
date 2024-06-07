@@ -42,7 +42,7 @@ public class BLE_Service extends Service {
 
     private final static String TAG = BLE_Service.class.getSimpleName();
 
-    public static final String CHANNEL_ID = "com.example.UPDATE_SERVICE";
+    public static final String CHANNEL_ID = "com.miteos.UPDATE_SERVICE";
 
     public static Boolean isRunning = false;
 

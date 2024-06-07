@@ -29,8 +29,8 @@ public class NotificationService extends NotificationListenerService {
     // Constants
     private final String TAG = this.getClass().getSimpleName();
 
-    public final static String NOTIFICATION_ACTION = "com.example.NOTIFICATION_LISTENER_EXAMPLE";
-    public final static String GET_NOTIFICATION_INTENT = "com.example.NOTIFICATION_LISTENER_SERVICE_EXAMPLE";
+    public final static String NOTIFICATION_ACTION = "com.miteos.NOTIFICATION_LISTENER_EXAMPLE";
+    public final static String GET_NOTIFICATION_INTENT = "com.miteos.NOTIFICATION_LISTENER_SERVICE_EXAMPLE";
 
     // Global variables
     private NLServiceReceiver nlServiceReceiver;
@@ -79,6 +79,7 @@ public class NotificationService extends NotificationListenerService {
             if (n.category.equals("email")) {
                 intent.putExtra("sub_text", Trim(n.extras.getString(Notification.EXTRA_SUB_TEXT, ""))); // (email) account
             }
+            Log.e(TAG, "TEST");
             sendBroadcast(intent);
         }
     }

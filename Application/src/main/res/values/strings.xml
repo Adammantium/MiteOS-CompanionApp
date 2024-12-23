@@ -1,5 +1,4 @@
-<?xml version="1.0" encoding="utf-8"?>
-<!-- Copyright (C) 2013 The Android Open Source Project
+<?xml version="1.0" encoding="utf-8"?><!-- Copyright (C) 2013 The Android Open Source Project
 
      Licensed under the Apache License, Version 2.0 (the "License");
      you may not use this file except in compliance with the License.
@@ -46,5 +45,27 @@
     <string name="menu_settings">Settings</string>
     <string name="device_not_connected">Device not connected</string>
     <string name="init">Init</string>
+    <string name="title_activity_overview">OverviewActivity</string>
+
+    <!-- Preference Titles -->
+    <string name="watch_pair_header">Watch Pair</string>
+    <string name="messages_header">Messages</string>
+    <string name="sync_header">Sync</string>
+
+    <!-- Messages Preferences -->
+    <string name="signature_title">Your signature</string>
+    <string name="reply_title">Default reply action</string>
+
+    <!-- Sync Preferences -->
+    <string name="sync_title">Sync email periodically</string>
+    <string name="attachment_title">Download incoming attachments</string>
+    <string name="attachment_summary_on">Automatically download attachments for incoming emails
+    </string>
+    <string name="attachment_summary_off">Only download attachments when manually requested</string>
+    <string name="pair_new_watch">Pair Watch</string>
+    <string name="hass_header">Home Assistant</string>
+    <string name="hass_url">Home Assistant URL</string>
+    <string name="hass_token">Home Assistant API Token</string>
+    <string name="test">test</string>
 
 </resources>

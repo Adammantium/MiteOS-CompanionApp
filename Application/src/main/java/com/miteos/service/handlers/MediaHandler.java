@@ -20,9 +20,9 @@ import androidx.core.app.NotificationCompat;
 import androidx.core.graphics.drawable.IconCompat;
 
 import com.miteos.activity.MainActivity;
-import com.miteos.service.MainService;
+import com.miteos.func.SteinbergDithering;import com.miteos.service.MainService;
 
-import java.lang.reflect.Array;
+import java.io.ByteArrayOutputStream;import java.lang.reflect.Array;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Base64;
@@ -38,14 +38,17 @@ public class MediaHandler {
         public String artist;
         public String album;
         public String art;
+        public long position;
+        public long duration;
 
         public MediaInfo(MediaController controller) {
             title = controller.getMetadata().getString(MediaMetadata.METADATA_KEY_TITLE);
             album = controller.getMetadata().getString(MediaMetadata.METADATA_KEY_ALBUM);
             artist = controller.getMetadata().getString(MediaMetadata.METADATA_KEY_ARTIST);
+            position = controller.getPlaybackState().getPosition() / 1000;
+            duration = controller.getMetadata().getLong(MediaMetadata.METADATA_KEY_DURATION) / 1000;
 
             art = MediaHandler.GenerateImage(controller.getMetadata().getBitmap(MediaMetadata.METADATA_KEY_ALBUM_ART));
-            Log.e("MEEP", art);
         }
 
         @NonNull
@@ -54,7 +57,7 @@ public class MediaHandler {
             return title + " " + album + " " + artist;
         }
     }
-    public static MediaInfo getPlaybackInfos() {
+    public static MediaController getPlaybackSession() {
         if(m == null) init();
 
         java.util.List<android.media.session.MediaController> sessions = m.getActiveSessions(component);
@@ -63,35 +66,97 @@ public class MediaHandler {
 
         for(MediaController session : sessions) {
             if(session.getPlaybackState().getState() == PlaybackState.STATE_PLAYING) {
-                return new MediaInfo(session);
+                return session;
             }
         }
-        return new MediaInfo(sessions.get(0));
+        return sessions.get(0);
     }
+    public static MediaInfo getPlaybackInfos() {
+        if(m == null) init();
+
+        MediaController session = getPlaybackSession();
+
+        if(session == null) return null;
+
+        return new MediaInfo(session);
+    }
+
+    public static void toggle() {
+        if(m == null) init();
+
+        MediaController session = getPlaybackSession();
+
+        if(session == null) return;
+
+        if(session.getPlaybackState().getState() == PlaybackState.STATE_PLAYING) {
+            session.getTransportControls().pause();
+        }else{
+            session.getTransportControls().play();
+        }
+    }
+
+    public static void next() {
+        if(m == null) init();
+
+        MediaController session = getPlaybackSession();
+
+        if(session == null) return;
+
+        session.getTransportControls().skipToNext();
+    }
+
+    public static void previous() {
+        if(m == null) init();
+
+        MediaController session = getPlaybackSession();
+
+        if(session == null) return;
+
+        session.getTransportControls().skipToPrevious();
+    }
+
+
+
 
     public static void init() {
         m = (MediaSessionManager) MainService.instance.getSystemService(Context.MEDIA_SESSION_SERVICE);
         component = new ComponentName(MainService.instance, MediaHandler.class);
     }
 
+    private static boolean convertPixel(Color clr) {
+        if((255 * 3 / 2) < (clr.red() + clr.green() + clr.blue())) return true;
+
+        return false;
+    }
+
+
     public static String GenerateImage(Bitmap src) {
         if(src == null) return "";
 
-        int size = 100;
+        int size = 48;
+
 
         Bitmap bmp = Bitmap.createScaledBitmap(src, size, size, false);
+        bmp = SteinbergDithering.floydSteinbergDithering(bmp);
+
+        /*ByteArrayOutputStream byteArrayOutputStream = new ByteArrayOutputStream();
+        bmp.compress(Bitmap.CompressFormat.PNG, 100, byteArrayOutputStream);
+        byte[] byteArray = byteArrayOutputStream .toByteArray();
+        Log.e("1", Base64.getEncoder().encodeToString(byteArray));*/
+
+        /*byteArrayOutputStream = new ByteArrayOutputStream();
+        bmp.compress(Bitmap.CompressFormat.PNG, 100, byteArrayOutputStream);
+        byteArray = byteArrayOutputStream .toByteArray();
+        Log.e("2", Base64.getEncoder().encodeToString(byteArray));*/
 
         boolean bits[]= new boolean[size * size];
 
         //String test = "";
         for (int y = 0; y < bmp.getHeight(); y++) {
             for (int x = 0; x < bmp.getWidth(); x++) {
-                int clr = bmp.getPixel(x, y);
-                if((255 * 3 / 2) < (Color.red(clr) + Color.green(clr) + Color.blue(clr))) {
-                    bits[x + y * size] = true;
-                }else{
-                    bits[x + y * size] = false;
-                }
+                Color clr = bmp.getColor(x, y);
+
+                bits[x + y * size] = clr.red() > 0.5;
             }
         }
 

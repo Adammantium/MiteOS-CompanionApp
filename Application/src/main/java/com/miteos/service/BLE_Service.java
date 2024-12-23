@@ -177,7 +177,7 @@ public class BLE_Service extends Service {
     public void onCreate() {
         super.onCreate();
         createNotificationChannel();
-        
+
         Intent notificationIntent = new Intent(this.getApplicationContext(), MainActivity.class);
         PendingIntent pendingIntent = null;
         if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.S) {
@@ -346,9 +346,17 @@ public class BLE_Service extends Service {
             Log.w(TAG, "BluetoothAdapter not initialized");
             return;
         }
+        if (ActivityCompat.checkSelfPermission(this, Manifest.permission.BLUETOOTH_CONNECT) != PackageManager.PERMISSION_GRANTED) {
+            Log.e(TAG, "Missing Bluetooth Connect Permission.");
+            return;
+        }
         mBluetoothGatt.setCharacteristicNotification(characteristic, enabled);
-        BluetoothGattDescriptor descriptor = characteristic.getDescriptor(
-                UUID.fromString(SampleGattAttributes.CLIENT_CHARACTERISTIC_CONFIG));
+        BluetoothGattDescriptor descriptor = characteristic.getDescriptor(UUID.fromString(SampleGattAttributes.CLIENT_CHARACTERISTIC_CONFIG));
+        if(descriptor == null) {
+            Log.e(TAG, UUID.fromString(SampleGattAttributes.CLIENT_CHARACTERISTIC_CONFIG).toString());
+            Log.e(TAG, "Descriptor is null. Try clearing app data.");
+            return;
+        }
         descriptor.setValue(BluetoothGattDescriptor.ENABLE_NOTIFICATION_VALUE);
         mBluetoothGatt.writeDescriptor(descriptor);
     }

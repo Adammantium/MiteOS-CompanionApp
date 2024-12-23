@@ -29,9 +29,6 @@ public class NotificationService extends NotificationListenerService {
     // Constants
     private final String TAG = this.getClass().getSimpleName();
 
-    public final static String NOTIFICATION_ACTION = "com.miteos.NOTIFICATION_LISTENER_EXAMPLE";
-    public final static String GET_NOTIFICATION_INTENT = "com.miteos.NOTIFICATION_LISTENER_SERVICE_EXAMPLE";
-
     // Global variables
     private NLServiceReceiver nlServiceReceiver;
 
@@ -48,7 +45,7 @@ public class NotificationService extends NotificationListenerService {
 
         nlServiceReceiver = new NLServiceReceiver();
         IntentFilter filter = new IntentFilter();
-        filter.addAction(GET_NOTIFICATION_INTENT);
+        filter.addAction(MainService.GET_NOTIFICATION_INTENT);
         registerReceiver(nlServiceReceiver, filter);
     }
 
@@ -64,7 +61,7 @@ public class NotificationService extends NotificationListenerService {
 
         Notification n = sbn.getNotification();
         if (n.category != null && !n.category.equalsIgnoreCase("sys") && !sbn.getPackageName().equalsIgnoreCase("com.android.updater")) {
-            Intent intent = new Intent(NOTIFICATION_ACTION);
+            Intent intent = new Intent(MainService.NOTIFICATION_ACTION);
             intent.putExtra("type", "new_notification");
             intent.putExtra("package", sbn.getPackageName());
             intent.putExtra("id", sbn.getId());
@@ -90,7 +87,7 @@ public class NotificationService extends NotificationListenerService {
 
         Notification n = sbn.getNotification();
         if (n.category != null) {
-            Intent intent = new Intent(NOTIFICATION_ACTION);
+            Intent intent = new Intent(MainService.NOTIFICATION_ACTION);
             intent.putExtra("id", sbn.getId());
             intent.putExtra("type", "remove_notification");
             sendBroadcast(intent);
@@ -118,6 +115,8 @@ public class NotificationService extends NotificationListenerService {
             Log.i(TAG, "NLServiceReceiver: onReceive");
             Intent intent;
 
+            Log.i(TAG, incomingIntent.getStringExtra("command"));
+
             if (incomingIntent.getStringExtra("command").equals("clearall")) {
                 Log.i(TAG, "Clear All");
                 NotificationService.this.cancelAllNotifications();
@@ -131,6 +130,7 @@ public class NotificationService extends NotificationListenerService {
 
                     Notification n = sbn.getNotification();
                     if (n.category != null && !n.category.equalsIgnoreCase("sys") && !sbn.getPackageName().equalsIgnoreCase("com.android.updater")) {
+                        Log.i(TAG, sbn.getPackageName());
 
                         final PackageManager pm = getApplicationContext().getPackageManager();
                         ApplicationInfo ai;
@@ -163,7 +163,7 @@ public class NotificationService extends NotificationListenerService {
 
                 notificationList.count = notificationList.nBundleList.size();
 
-                intent = new Intent(NOTIFICATION_ACTION);
+                intent = new Intent(MainService.NOTIFICATION_ACTION);
                 intent.putExtra("type", "list_notification");
                 intent.putExtra("data", new Gson().toJson(notificationList));
                 sendBroadcast(intent);

@@ -60,6 +60,9 @@ public class MainService extends Service {
     private static final String GET_PACKAGE_ICON = "GET_PKG_ICON=";
     private static final String GET_NOTIFICATION_LIST = "GET_NOTIF_LIST=";
     private static final String GET_PLAYBACK_INFO = "GET_PLAYBACK_INFO=";
+    private static final String TOGGLE_PLAYBACK = "TOGGLE_PLAYBACK=";
+    private static final String NEXT_PLAYBACK = "NEXT_PLAYBACK=";
+    private static final String PREVIOUS_PLAYBACK = "PREVIOUS_PLAYBACK=";
 
     // Actions
     public final static String NOTIFICATION_ACTION = "com.miteos.NOTIFICATION_LISTENER_EXAMPLE";
@@ -197,6 +200,15 @@ public class MainService extends Service {
                 }else if(s.startsWith(GET_PLAYBACK_INFO)) {
                     Log.e(TAG, new Gson().toJson(MediaHandler.getPlaybackInfos()));
                     sendData(new Gson().toJson(MediaHandler.getPlaybackInfos()).replaceAll("[^\\x00-\\x7F]", ""));
+                }else if(s.startsWith(TOGGLE_PLAYBACK)) {
+                    MediaHandler.toggle();
+                    sendData("DONE");
+                }else if(s.startsWith(NEXT_PLAYBACK)) {
+                    MediaHandler.next();
+                    sendData("DONE");
+                }else if(s.startsWith(PREVIOUS_PLAYBACK)) {
+                    MediaHandler.previous();
+                    sendData("DONE");
                 } else {
                     Log.e(TAG, "Unknown command");
                 }
@@ -338,11 +350,12 @@ public class MainService extends Service {
     class NotificationReceiver extends BroadcastReceiver {
         @Override
         public void onReceive(Context context, Intent intent) {
-
+            Log.w(TAG, "Intent");
             if (intent.hasExtra("type")) {
                 Bundle extras = intent.getExtras();
                 String type = extras.getString("type");
                 NotificationBundle notificationBundle = new NotificationBundle();
+                Log.e(TAG, type);
 
                 if (type.equalsIgnoreCase("new_notification")) {
 
@@ -355,10 +368,12 @@ public class MainService extends Service {
                     if (notificationBundle.category.equals("email")) {
                         notificationBundle.subText = extras.getString("sub_text", "");
                     }
-                    sendData("NEW_NOTIFICATION=" + new Gson().toJson(notificationBundle));
+                    // Currently not needed as the clock is in pulling mode to save energy
+                    //sendData("NEW_NOTIFICATION=" + new Gson().toJson(notificationBundle));
 
                 } else if (type.equalsIgnoreCase("list_notification")) {
 
+                    // Currently not needed as the clock is in pulling mode to save energy
                     sendData("NOTIFICATION_LIST=" + extras.getString("data", ""));
 
                 } else {

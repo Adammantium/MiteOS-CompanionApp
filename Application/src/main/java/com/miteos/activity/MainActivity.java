@@ -417,6 +417,9 @@ public class MainActivity extends ListActivity {
             case R.id.menu_stop:
                 scanLeDevice(false);
                 break;
+            case 16908332:
+                this.finish();
+                break;
         }
         return true;
     }

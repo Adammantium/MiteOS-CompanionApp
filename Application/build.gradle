@@ -2,12 +2,12 @@ apply plugin: 'com.android.application'
 
 android {
 
-    compileSdkVersion 31
+    compileSdkVersion 33
 
     defaultConfig {
         applicationId "com.miteos.activity"
         minSdkVersion 30
-        targetSdkVersion 31
+        targetSdkVersion 33
         versionCode 100
         versionName "1.0.0"
         vectorDrawables.useSupportLibrary = true
@@ -28,16 +28,17 @@ android {
         targetCompatibility JavaVersion.VERSION_1_8
     }
 
+    namespace "com.miteos.activity"
 }
 
 dependencies {
-    implementation 'androidx.preference:preference:1.2.0'
-    implementation 'com.google.android.material:material:1.6.1'
+    implementation 'androidx.preference:preference:1.2.1'
+    implementation 'com.google.android.material:material:1.9.0'
     implementation 'androidx.legacy:legacy-support-v4:1.0.0'
     implementation 'androidx.legacy:legacy-support-v13:1.0.0'
     implementation 'androidx.cardview:cardview:1.0.0'
-    implementation 'androidx.appcompat:appcompat:1.4.2'
+    implementation 'androidx.appcompat:appcompat:1.6.1'
     implementation 'androidx.lifecycle:lifecycle-extensions:2.2.0'
-    implementation 'com.google.code.gson:gson:2.8.6'
+    implementation 'com.google.code.gson:gson:2.10.1'
     implementation 'com.rengwuxian.materialedittext:library:2.1.4'
 }

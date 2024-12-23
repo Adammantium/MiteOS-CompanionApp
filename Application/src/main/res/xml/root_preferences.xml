@@ -1,8 +1,10 @@
-<PreferenceScreen xmlns:app="http://schemas.android.com/apk/res-auto">
+<?xml version="1.0" encoding="utf-8"?>
+<PreferenceScreen xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto">
 
     <PreferenceCategory
-        layout_height="wrap_content"
-        layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_width="wrap_content"
         app:title="@string/watch_pair_header">
 
         <Preference
@@ -10,22 +12,19 @@
             app:title="@string/pair_new_watch" />
 
     </PreferenceCategory>
-    <PreferenceCategory app:title="@string/hass_header">
 
-        <EditTextPreference
+    <PreferenceCategory 
+        app:title="@string/hass_header">
+
+        <Preference
             app:key="hassUrl"
-            app:persistent="true"
-            app:title="@string/hass_url"
-            app:useSimpleSummaryProvider="true"
-            app:defaultValue="http://127.0.0.1"/>
+            app:persistent="false"
+            app:title="@string/hass_url"/>
 
-        <EditTextPreference
-            layout_height="wrap_content"
-            layout_width="wrap_content"
-            app:defaultValue="123"
+        <Preference
             app:key="hass_token"
-            app:title="@string/hass_token"
-            app:useSimpleSummaryProvider="true" />
+            app:persistent="false"
+            app:title="@string/hass_token"/>
 
     </PreferenceCategory>
 

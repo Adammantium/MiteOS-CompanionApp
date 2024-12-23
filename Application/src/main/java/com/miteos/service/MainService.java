@@ -6,6 +6,7 @@ import static com.miteos.service.BLE_Service.UUID_WRITE_TO_ESP;
 import android.Manifest;
 import android.app.Service;
 import android.bluetooth.BluetoothGattCharacteristic;
+import android.bluetooth.BluetoothGattDescriptor;
 import android.bluetooth.BluetoothGattService;
 import android.content.BroadcastReceiver;
 import android.content.ComponentName;
@@ -23,7 +24,9 @@ import android.media.MediaMetadata;
 import android.media.session.MediaController;
 import android.media.session.MediaSessionManager;
 import android.os.Bundle;
+import android.os.Handler;
 import android.os.IBinder;
+import android.os.Looper;
 import android.preference.PreferenceManager;
 import android.util.Base64;
 import android.util.Log;
@@ -44,6 +47,17 @@ import java.io.ByteArrayOutputStream;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
+import java.util.UUID;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicReference;
+import java.util.concurrent.locks.Condition;
+import java.util.concurrent.locks.Lock;
+import java.util.concurrent.locks.ReentrantLock;
 
 public class MainService extends Service {
 
@@ -63,6 +77,7 @@ public class MainService extends Service {
     private static final String TOGGLE_PLAYBACK = "TOGGLE_PLAYBACK=";
     private static final String NEXT_PLAYBACK = "NEXT_PLAYBACK=";
     private static final String PREVIOUS_PLAYBACK = "PREVIOUS_PLAYBACK=";
+    private static final String GET_CONFIGURATION = "GET_CONFIGURATION=";
 
     // Actions
     public final static String NOTIFICATION_ACTION = "com.miteos.NOTIFICATION_LISTENER_EXAMPLE";
@@ -78,6 +93,8 @@ public class MainService extends Service {
     private BluetoothGattCharacteristic mWriteCharacteristic;
 
     public static MainService instance;
+
+    private int mMtuSize = 20; // Default MTU size
 
     public MainService() {
         instance = this;
@@ -95,26 +112,41 @@ public class MainService extends Service {
             mDeviceAddress = sharedPreferences.getString(DEVICE_ADDRESS, "00:00:00:00:00");
         }
 
-        registerReceiver(nReceiver, makeNLServiceIntentFilter());
-        registerReceiver(mGattUpdateReceiver, makeGattUpdateIntentFilter());
-
+        // Start BLE service and bind to it
         Intent gattServiceIntent = new Intent(this, BLE_Service.class);
+        startService(gattServiceIntent);
+
+        // Register receivers with package-specific intents
+        IntentFilter gattFilter = makeGattUpdateIntentFilter();
+        Log.d(TAG, "Registering GATT update receiver with filter: " + gattFilter.toString());
+        registerReceiver(mGattUpdateReceiver, gattFilter);
+
+        IntentFilter nlFilter = makeNLServiceIntentFilter();
+        registerReceiver(nReceiver, nlFilter);
+
+        // Bind to BLE service after registering receivers
         bindService(gattServiceIntent, mServiceConnection, BIND_AUTO_CREATE);
 
-        /*
-        if (mBLEService != null) {
-            final boolean result = mBLEService.connect(mDeviceAddress);
-            Log.d(TAG, "Connect request result=" + result);
-        }*/
-
-        return START_STICKY; // Keep the service alive
+        return START_STICKY;
     }
 
     @Override
     public void onDestroy() {
-        unbindService(mServiceConnection);
-        unregisterReceiver(mGattUpdateReceiver);
-        unregisterReceiver(nReceiver);
+        try {
+            unregisterReceiver(mGattUpdateReceiver);
+        } catch (IllegalArgumentException e) {
+            Log.e(TAG, "GATT receiver not registered", e);
+        }
+        try {
+            unregisterReceiver(nReceiver);
+        } catch (IllegalArgumentException e) {
+            Log.e(TAG, "Notification receiver not registered", e);
+        }
+        if (mBLEService != null) {
+            unbindService(mServiceConnection);
+            mBLEService = null;
+        }
+        stopService(new Intent(this, BLE_Service.class));
         super.onDestroy();
     }
 
@@ -146,16 +178,23 @@ public class MainService extends Service {
     }
 
     private final ServiceConnection mServiceConnection = new ServiceConnection() {
-
         @Override
         public void onServiceConnected(ComponentName componentName, IBinder service) {
             mBLEService = ((BLE_Service.LocalBinder) service).getService();
             if (!mBLEService.initialize()) {
                 Log.e(TAG, "Unable to initialize Bluetooth");
                 mBLEService.disconnect();
+                return;
             }
-            // Automatically connects to the device upon successful start-up initialization.
-            mBLEService.connect(mDeviceAddress);
+            
+            // Delay the connection attempt slightly to ensure proper initialization
+            new Handler(Looper.getMainLooper()).postDelayed(() -> {
+                // Automatically connects to the device upon successful start-up initialization.
+                if (mBLEService != null) {
+                    final boolean result = mBLEService.connect(mDeviceAddress);
+                    Log.d(TAG, "Connect request result=" + result);
+                }
+            }, 1000);
         }
 
         @Override
@@ -167,8 +206,9 @@ public class MainService extends Service {
     private final BroadcastReceiver mGattUpdateReceiver = new BroadcastReceiver() {
         @Override
         public void onReceive(Context context, Intent intent) {
-
             final String action = intent.getAction();
+            Log.d(TAG, "MainService received action: " + action);
+
             if (BLE_Service.ACTION_GATT_CONNECTED.equals(action)) {
                 mConnected = true;
                 Log.i(TAG, getString(R.string.connected));
@@ -176,45 +216,52 @@ public class MainService extends Service {
                 mConnected = false;
                 Log.i(TAG, getString(R.string.disconnected));
             } else if (BLE_Service.ACTION_GATT_SERVICES_DISCOVERED.equals(action)) {
+                Log.d(TAG, "Services discovered");
                 // Show all the supported services and characteristics on the user interface.
                 displayGattServices(mBLEService.getSupportedGattServices());
+            } else if (BLE_Service.ACTION_MTU_CHANGED.equals(action)) {
+                mMtuSize = intent.getIntExtra(BLE_Service.EXTRA_MTU_SIZE, 20);
+                Log.d(TAG, "MTU size updated to: " + mMtuSize);
             } else if (BLE_Service.ACTION_DATA_AVAILABLE.equals(action)) {
+                String data = intent.getStringExtra(BLE_Service.EXTRA_DATA);
+                Log.i(TAG, "Received data from ESP: " + (data != null ? data : "null"));
 
-                String s = intent.getStringExtra(BLE_Service.EXTRA_DATA);
-                Log.i(TAG, "ESP says: " + s);
-
-                if (s.startsWith(GET_PACKAGE_ICON)) {
-                    // Get icon of the requested package name
-                    //  (used after "new_notification" as request from the BT device)
-                    s = s.replace(GET_PACKAGE_ICON, "");
-                    sendApplicationIcon(s);
-                } else if (s.startsWith(GET_NOTIFICATION_LIST)) {
-                    // Send a broadcast to the Notification Service
-                    //  to request the active notification list
-                    s = s.replace(GET_NOTIFICATION_LIST, "");
-                    Log.d(TAG, "Command: Get Notification List");
-                    Log.d(TAG, "Value: " + s);
-                    Intent i = new Intent(GET_NOTIFICATION_INTENT);
-                    i.putExtra("command", "list");
-                    sendBroadcast(i);
-                }else if(s.startsWith(GET_PLAYBACK_INFO)) {
-                    Log.e(TAG, new Gson().toJson(MediaHandler.getPlaybackInfos()));
-                    sendData(new Gson().toJson(MediaHandler.getPlaybackInfos()).replaceAll("[^\\x00-\\x7F]", ""));
-                }else if(s.startsWith(TOGGLE_PLAYBACK)) {
-                    MediaHandler.toggle();
-                    sendData("DONE");
-                }else if(s.startsWith(NEXT_PLAYBACK)) {
-                    MediaHandler.next();
-                    sendData("DONE");
-                }else if(s.startsWith(PREVIOUS_PLAYBACK)) {
-                    MediaHandler.previous();
-                    sendData("DONE");
-                } else {
-                    Log.e(TAG, "Unknown command");
+                if (data != null) {
+                    if (data.startsWith(GET_PACKAGE_ICON)) {
+                        data = data.replace(GET_PACKAGE_ICON, "");
+                        sendApplicationIcon(data);
+                    } else if (data.startsWith(GET_NOTIFICATION_LIST)) {
+                        data = data.replace(GET_NOTIFICATION_LIST, "");
+                        Log.d(TAG, "Command: Get Notification List");
+                        Log.d(TAG, "Value: " + data);
+                        Intent i = new Intent(GET_NOTIFICATION_INTENT);
+                        i.putExtra("command", "list");
+                        sendBroadcast(i);
+                    } else if(data.startsWith(GET_PLAYBACK_INFO)) {
+                        Log.d(TAG, "Command: Get Playback Info");
+                        sendData(new Gson().toJson(MediaHandler.getPlaybackInfos()).replaceAll("[^\\x00-\\x7F]", ""));
+                    } else if(data.startsWith(TOGGLE_PLAYBACK)) {
+                        Log.d(TAG, "Command: Toggle Playback");
+                        MediaHandler.toggle();
+                        sendData("DONE");
+                    } else if(data.startsWith(NEXT_PLAYBACK)) {
+                        Log.d(TAG, "Command: Next Playback");
+                        MediaHandler.next();
+                        sendData("DONE");
+                    } else if(data.startsWith(PREVIOUS_PLAYBACK)) {
+                        Log.d(TAG, "Command: Previous Playback");
+                        MediaHandler.previous();
+                        sendData("DONE");
+                    } else if(data.startsWith(GET_CONFIGURATION)) {
+                        SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(context);
+                        String haasUrl = prefs.getString("hassUrl", "http://127.0.0.1");
+                        String haasToken = prefs.getString("hass_token", "");
+                        sendData("{ \"hassUrl\": \"" + haasUrl + "\", \"hassTkn\": \"" + haasToken + "\" }");
+                    } else {
+                        Log.e(TAG, "Unknown command: " + data);
+                    }
                 }
-            } /*else {
-                Log.e(TAG, "Action=" + action);
-            }*/
+            }
         }
     };
 
@@ -254,17 +301,36 @@ public class MainService extends Service {
     }
 
     private void sendData(String data) {
+        if (!mConnected) {
+            Log.e(TAG, "Not connected to device");
+            return;
+        }
 
-        if (mConnected) {
-            if (mWriteCharacteristic != null) {
-                byte[] strBytes = data.getBytes();
-                mWriteCharacteristic.setValue(strBytes);
-                mBLEService.writeCharacteristic(mWriteCharacteristic);
+        if (mWriteCharacteristic == null) {
+            Log.e(TAG, "Write characteristic not available");
+            doDisconnect(null);
+            return;
+        }
 
-            } else {
-                Log.e(TAG, "mWriteCharacteristic is null");
-                doDisconnect(null);
-            }
+        // Use the negotiated MTU size, accounting for ATT overhead
+        int maxChunkSize = mMtuSize - 3; // ATT overhead is 3 bytes
+        int length = data.length();
+        int offset = 0;
+
+        Log.d(TAG, "Sending data with length " + length + " using MTU size " + mMtuSize);
+
+        while (offset < length) {
+            int chunkSize = Math.min(maxChunkSize, length - offset);
+            String chunk = data.substring(offset, offset + chunkSize);
+            
+            byte[] bytes = chunk.getBytes();
+            mWriteCharacteristic.setValue(bytes);
+            
+            Log.d(TAG, "Writing chunk " + (offset/maxChunkSize + 1) + " of " + ((length + maxChunkSize - 1)/maxChunkSize) + 
+                  " size: " + bytes.length);
+            mBLEService.writeCharacteristic(mWriteCharacteristic);
+            
+            offset += chunkSize;
         }
     }
 
@@ -279,7 +345,9 @@ public class MainService extends Service {
         intentFilter.addAction(BLE_Service.ACTION_GATT_CONNECTED);
         intentFilter.addAction(BLE_Service.ACTION_GATT_DISCONNECTED);
         intentFilter.addAction(BLE_Service.ACTION_GATT_SERVICES_DISCOVERED);
+        intentFilter.addAction(BLE_Service.ACTION_MTU_CHANGED);
         intentFilter.addAction(BLE_Service.ACTION_DATA_AVAILABLE);
+        intentFilter.addCategory(Intent.CATEGORY_DEFAULT);
         return intentFilter;
     }
 
@@ -295,52 +363,133 @@ public class MainService extends Service {
     // on the UI.
     */
     private void displayGattServices(List<BluetoothGattService> gattServices) {
-        if (gattServices == null) return;
-        String uuid = null;
-        String unknownServiceString = getResources().getString(R.string.unknown_service);
-        String unknownCharaString = getResources().getString(R.string.unknown_characteristic);
-        ArrayList<HashMap<String, String>> gattServiceData = new ArrayList<HashMap<String, String>>();
-        ArrayList<ArrayList<HashMap<String, String>>> gattCharacteristicData
-                = new ArrayList<ArrayList<HashMap<String, String>>>();
-        mGattCharacteristics = new ArrayList<ArrayList<BluetoothGattCharacteristic>>();
+        if (gattServices == null) {
+            Log.e(TAG, "No GATT services available");
+            return;
+        }
+        
+        Log.d(TAG, "Displaying GATT services");
+        mNotifyCharacteristic = null;
+        mWriteCharacteristic = null;
 
-        // Loops through available GATT Services.
-        for (BluetoothGattService gattService : gattServices) {
-            HashMap<String, String> currentServiceData = new HashMap<String, String>();
-            uuid = gattService.getUuid().toString();
-            currentServiceData.put(
-                    LIST_NAME, SampleGattAttributes.lookup(uuid, unknownServiceString));
-            currentServiceData.put(LIST_UUID, uuid);
-            gattServiceData.add(currentServiceData);
+        // First find the Nordic UART Service
+        BluetoothGattService uartService = null;
+        for (BluetoothGattService service : gattServices) {
+            UUID serviceUuid = service.getUuid();
+            Log.d(TAG, "Service discovered: " + serviceUuid.toString());
+            
+            // Compare UUIDs directly
+            if (serviceUuid.toString().equalsIgnoreCase("6E400001-B5A3-F393-E0A9-E50E24DCCA9E")) {
+                Log.d(TAG, "Found Nordic UART Service");
+                uartService = service;
+                break;
+            }
+        }
 
-            ArrayList<HashMap<String, String>> gattCharacteristicGroupData =
-                    new ArrayList<HashMap<String, String>>();
-            List<BluetoothGattCharacteristic> gattCharacteristics =
-                    gattService.getCharacteristics();
-            ArrayList<BluetoothGattCharacteristic> charas =
-                    new ArrayList<BluetoothGattCharacteristic>();
+        if (uartService != null) {
+            // Now get the characteristics from the UART service
+            List<BluetoothGattCharacteristic> characteristics = uartService.getCharacteristics();
+            Log.d(TAG, "Found " + characteristics.size() + " characteristics in UART service");
+            
+            for (BluetoothGattCharacteristic characteristic : characteristics) {
+                UUID uuid = characteristic.getUuid();
+                int properties = characteristic.getProperties();
+                Log.d(TAG, "Characteristic discovered: " + uuid.toString() + " with properties: 0x" + Integer.toHexString(properties));
 
-            // Loops through available Characteristics.
-            for (BluetoothGattCharacteristic gattCharacteristic : gattCharacteristics) {
-                charas.add(gattCharacteristic);
-                HashMap<String, String> currentCharaData = new HashMap<String, String>();
-                uuid = gattCharacteristic.getUuid().toString();
-                currentCharaData.put(
-                        LIST_NAME, SampleGattAttributes.lookup(uuid, unknownCharaString));
-                currentCharaData.put(LIST_UUID, uuid);
-                gattCharacteristicGroupData.add(currentCharaData);
-
-                if (gattCharacteristic.getUuid().equals(UUID_READ_FROM_ESP)) {
-                    mNotifyCharacteristic = gattCharacteristic;
-                    mBLEService.setCharacteristicNotification(gattCharacteristic, true);
+                // Compare UUIDs directly
+                if (uuid.toString().equalsIgnoreCase("6E400003-B5A3-F393-E0A9-E50E24DCCA9E")) {
+                    Log.d(TAG, "Found RX characteristic");
+                    if ((properties & BluetoothGattCharacteristic.PROPERTY_NOTIFY) != 0) {
+                        Log.d(TAG, "RX characteristic supports NOTIFY");
+                        mNotifyCharacteristic = characteristic;
+                        // Set up notifications immediately
+                        setCharacteristicNotification(mNotifyCharacteristic, true);
+                    } else {
+                        Log.e(TAG, "RX characteristic does not support NOTIFY");
+                    }
                 }
 
-                if (gattCharacteristic.getUuid().equals(UUID_WRITE_TO_ESP)) {
-                    mWriteCharacteristic = gattCharacteristic;
+                if (uuid.toString().equalsIgnoreCase("6E400002-B5A3-F393-E0A9-E50E24DCCA9E")) {
+                    Log.d(TAG, "Found TX characteristic");
+                    if ((properties & BluetoothGattCharacteristic.PROPERTY_WRITE_NO_RESPONSE) != 0) {
+                        Log.d(TAG, "TX characteristic supports WRITE_NO_RESPONSE");
+                        mWriteCharacteristic = characteristic;
+                        // Set write type to no response
+                        mWriteCharacteristic.setWriteType(BluetoothGattCharacteristic.WRITE_TYPE_NO_RESPONSE);
+                    } else if ((properties & BluetoothGattCharacteristic.PROPERTY_WRITE) != 0) {
+                        Log.d(TAG, "TX characteristic supports WRITE");
+                        mWriteCharacteristic = characteristic;
+                    } else {
+                        Log.e(TAG, "TX characteristic does not support WRITE");
+                    }
                 }
             }
-            mGattCharacteristics.add(charas);
-            gattCharacteristicData.add(gattCharacteristicGroupData);
+
+            if (mNotifyCharacteristic == null) {
+                Log.e(TAG, "RX characteristic not found or does not support NOTIFY");
+            }
+
+            if (mWriteCharacteristic == null) {
+                Log.e(TAG, "TX characteristic not found or does not support WRITE");
+            }
+        } else {
+            Log.e(TAG, "Nordic UART Service not found");
+            // Log all available services for debugging
+            Log.d(TAG, "Available services:");
+            for (BluetoothGattService service : gattServices) {
+                Log.d(TAG, "  Service: " + service.getUuid().toString());
+                for (BluetoothGattCharacteristic characteristic : service.getCharacteristics()) {
+                    Log.d(TAG, "    Characteristic: " + characteristic.getUuid().toString() + 
+                          " Properties: 0x" + Integer.toHexString(characteristic.getProperties()));
+                }
+            }
+        }
+    }
+
+    private void setCharacteristicNotification(BluetoothGattCharacteristic characteristic, boolean enabled) {
+        if (mBLEService == null || characteristic == null) {
+            Log.w(TAG, "BluetoothGattService or characteristic not initialized");
+            return;
+        }
+
+        Log.d(TAG, "Setting up notifications for characteristic: " + characteristic.getUuid().toString());
+        
+        // First, set the local notification
+        mBLEService.setCharacteristicNotification(characteristic, enabled);
+
+        // Then, write the descriptor to enable notifications on the remote device
+        BluetoothGattDescriptor descriptor = characteristic.getDescriptor(
+                UUID.fromString("00002902-0000-1000-8000-00805f9b34fb")); // Client Characteristic Configuration
+        if (descriptor != null) {
+            Log.d(TAG, "Found notification descriptor, setting value");
+            // Check if the characteristic has the NOTIFY property
+            if ((characteristic.getProperties() & BluetoothGattCharacteristic.PROPERTY_NOTIFY) != 0) {
+                byte[] value = enabled ? BluetoothGattDescriptor.ENABLE_NOTIFICATION_VALUE : 
+                                       BluetoothGattDescriptor.DISABLE_NOTIFICATION_VALUE;
+                boolean success = descriptor.setValue(value);
+                if (success) {
+                    mBLEService.writeDescriptor(descriptor);
+                    Log.d(TAG, "Descriptor write initiated for NOTIFY");
+                } else {
+                    Log.e(TAG, "Failed to set descriptor value for NOTIFY");
+                }
+            }
+            // Check if the characteristic has the INDICATE property
+            else if ((characteristic.getProperties() & BluetoothGattCharacteristic.PROPERTY_INDICATE) != 0) {
+                byte[] value = enabled ? BluetoothGattDescriptor.ENABLE_INDICATION_VALUE : 
+                                       BluetoothGattDescriptor.DISABLE_NOTIFICATION_VALUE;
+                boolean success = descriptor.setValue(value);
+                if (success) {
+                    mBLEService.writeDescriptor(descriptor);
+                    Log.d(TAG, "Descriptor write initiated for INDICATE");
+                } else {
+                    Log.e(TAG, "Failed to set descriptor value for INDICATE");
+                }
+            } else {
+                Log.e(TAG, "Characteristic does not support NOTIFY or INDICATE");
+            }
+        } else {
+            Log.e(TAG, "No notification descriptor found for characteristic: " + characteristic.getUuid().toString());
         }
     }
 

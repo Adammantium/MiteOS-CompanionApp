@@ -19,6 +19,7 @@ import android.content.pm.PackageManager;
 import android.os.Build;
 import android.os.Bundle;
 import android.os.Handler;
+import android.os.Looper;
 import android.preference.PreferenceManager;
 import android.provider.Settings;
 import android.util.Log;
@@ -37,6 +38,11 @@ import android.widget.Toast;
 import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.view.ContextThemeWrapper;
 import androidx.core.app.ActivityCompat;
+import androidx.appcompat.app.AppCompatActivity;
+import androidx.appcompat.widget.Toolbar;
+import com.google.android.material.floatingactionbutton.FloatingActionButton;
+import com.google.android.material.card.MaterialCardView;
+import com.google.android.material.button.MaterialButton;
 
 import com.miteos.activity.R;
 import com.miteos.service.BLE_Service;
@@ -45,7 +51,7 @@ import com.miteos.service.MainService;
 import java.util.ArrayList;
 import java.util.Locale;
 
-public class MainActivity extends ListActivity {
+public class MainActivity extends AppCompatActivity {
 
     // Constants
     private final static String TAG = MainActivity.class.getSimpleName();
@@ -67,10 +73,12 @@ public class MainActivity extends ListActivity {
     private Handler mHandler;
 
     // User interface
-    private ActionBar actionBar;
-    private Button btnStopService;
-    private Button btnStartService;
-    private RelativeLayout listContainer;
+    private Toolbar toolbar;
+    private FloatingActionButton fabScan;
+    private MaterialButton btnStartService;
+    private MaterialButton btnStopService;
+    private MaterialCardView listContainer;
+    private ListView listView;
 
     ////////////////////////
     // Activity functions //
@@ -105,15 +113,18 @@ public class MainActivity extends ListActivity {
     @Override
     protected void onResume() {
         super.onResume();
+        
+        // Check if Bluetooth adapter is initialized
+        if (mBluetoothAdapter == null) return;
+        
         // Ensures Bluetooth is enabled on the device.  If Bluetooth is not currently enabled,
         // fire an intent to display a dialog asking the user to grant permission to enable it.
         if (!mBluetoothAdapter.isEnabled()) {
-            if (!mBluetoothAdapter.isEnabled()) {
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-                    if (ActivityCompat.checkSelfPermission(this, Manifest.permission.BLUETOOTH_CONNECT) != PackageManager.PERMISSION_GRANTED) return;
-                }
-                startActivityForResult(new Intent(BluetoothAdapter.ACTION_REQUEST_ENABLE), REQUEST_ENABLE_BT);
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                if (ActivityCompat.checkSelfPermission(this, Manifest.permission.BLUETOOTH_CONNECT) != PackageManager.PERMISSION_GRANTED) return;
             }
+            startActivityForResult(new Intent(BluetoothAdapter.ACTION_REQUEST_ENABLE), REQUEST_ENABLE_BT);
+            return;
         }
 
         final IntentFilter intentFilter = new IntentFilter();
@@ -123,8 +134,11 @@ public class MainActivity extends ListActivity {
         intentFilter.addAction(BLE_Service.ACTION_DATA_AVAILABLE);
         registerReceiver(mGattUpdateReceiver, intentFilter);
 
-        mLeDeviceListAdapter = new LeDeviceListAdapter();
-        setListAdapter(mLeDeviceListAdapter);
+        // Only update adapter if it's null and listView is available
+        if (mLeDeviceListAdapter == null && listView != null) {
+            mLeDeviceListAdapter = new LeDeviceListAdapter();
+            listView.setAdapter(mLeDeviceListAdapter);
+        }
     }
 
     @Override
@@ -140,51 +154,72 @@ public class MainActivity extends ListActivity {
     @Override
     protected void onPause() {
         super.onPause();
-        unregisterReceiver(mGattUpdateReceiver);
+        try {
+            unregisterReceiver(mGattUpdateReceiver);
+        } catch (IllegalArgumentException e) {
+            // Receiver not registered
+            Log.w(TAG, "Receiver was not registered");
+        }
         scanLeDevice(false);
-        mLeDeviceListAdapter.clear();
+        if (mLeDeviceListAdapter != null) {
+            mLeDeviceListAdapter.clear();
+        }
     }
 
     @Override
-    public void onCreate(Bundle savedInstanceState) {
+    protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-
         setContentView(R.layout.activity_main);
 
-        // Use this check to determine whether BLE is supported on the device.  Then you can
-        // selectively disable BLE-related features.
+        // Initialize UI components first
+        initializeUI();
+
+        // Initialize toolbar after UI components
+        if (toolbar != null) {
+            setSupportActionBar(toolbar);
+            if (getSupportActionBar() != null) {
+                getSupportActionBar().setTitle("Pair Watch");
+                getSupportActionBar().setDisplayHomeAsUpEnabled(true);
+            }
+        }
+        
+        // Use this check to determine whether BLE is supported on the device
         if (!getPackageManager().hasSystemFeature(PackageManager.FEATURE_BLUETOOTH_LE)) {
             Toast.makeText(this, R.string.ble_not_supported, Toast.LENGTH_SHORT).show();
             finish();
+            return;
         }
 
-        // Initializes a Bluetooth adapter
+        // Initialize Bluetooth adapter
         final BluetoothManager bluetoothManager = (BluetoothManager) getSystemService(Context.BLUETOOTH_SERVICE);
+        if (bluetoothManager == null) {
+            Toast.makeText(this, R.string.error_bluetooth_not_supported, Toast.LENGTH_SHORT).show();
+            finish();
+            return;
+        }
+        
         mBluetoothAdapter = bluetoothManager.getAdapter();
-
-        // Checks if Bluetooth is supported on the device.
         if (mBluetoothAdapter == null) {
             Toast.makeText(this, R.string.error_bluetooth_not_supported, Toast.LENGTH_SHORT).show();
             finish();
             return;
         }
 
-        mHandler = new Handler();
+        mHandler = new Handler(Looper.getMainLooper());
+
+        // Initialize remaining components
+        initializeListeners();
+        checkPermissions();
 
         if (!isNotificationServiceRunning()) {
             startActivity(new Intent("android.settings.ACTION_NOTIFICATION_LISTENER_SETTINGS"));
         }
-
-        initializeUI();
-        initializeListeners();
-        checkPermissions();
 
         SharedPreferences sharedPreferences = PreferenceManager.getDefaultSharedPreferences(getApplicationContext());
         mDeviceAddress = sharedPreferences.getString(DEVICE_ADDRESS, "00:00:00:00:00");
         mDeviceName = sharedPreferences.getString(DEVICE_NAME, "Unknown device");
 
         updateConnectionState(R.string.disconnected);
-
         startMyService();
     }
 
@@ -192,26 +227,63 @@ public class MainActivity extends ListActivity {
     // Private functions //
     ///////////////////////
     private void initializeUI() {
-        actionBar = getActionBar();
-        btnStartService = findViewById(R.id.btn_start_service);
-        btnStopService = findViewById(R.id.btn_stop_service);
-        listContainer = findViewById(R.id.list_container);
+        try {
+            toolbar = findViewById(R.id.toolbar);
+            btnStartService = findViewById(R.id.btn_start_service);
+            btnStopService = findViewById(R.id.btn_stop_service);
+            listContainer = findViewById(R.id.list_container);
+            fabScan = findViewById(R.id.fab_scan);
+            listView = findViewById(R.id.device_list);
+
+            // Hide list container initially
+            if (listContainer != null) {
+                listContainer.setVisibility(View.GONE);
+            }
+
+            // Initialize adapter and set click listener
+            mLeDeviceListAdapter = new LeDeviceListAdapter();
+            if (listView != null) {
+                listView.setAdapter(mLeDeviceListAdapter);
+                listView.setOnItemClickListener((parent, view, position, id) -> {
+                    if (mLeDeviceListAdapter != null) {
+                        final BluetoothDevice device = mLeDeviceListAdapter.getDevice(position);
+                        if (device == null) return;
+                        mLeDeviceListAdapter.clear();
+                        connectTo(device);
+                    }
+                });
+            }
+        } catch (Exception e) {
+            Log.e(TAG, "Error initializing UI components", e);
+            Toast.makeText(this, "Error initializing UI components", Toast.LENGTH_SHORT).show();
+            finish();
+        }
     }
 
     private void initializeListeners() {
-        btnStartService.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View v) {
-                startMyService();
+        try {
+            if (btnStartService != null) {
+                btnStartService.setOnClickListener(v -> startMyService());
             }
-        });
-
-        btnStopService.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View v) {
-                stopMyService();
+            if (btnStopService != null) {
+                btnStopService.setOnClickListener(v -> stopMyService());
             }
-        });
+            if (fabScan != null) {
+                fabScan.setOnClickListener(v -> {
+                    if (mScanning) {
+                        scanLeDevice(false);
+                        listContainer.setVisibility(View.GONE);
+                    } else {
+                        if (mLeDeviceListAdapter != null) {
+                            mLeDeviceListAdapter.clear();
+                        }
+                        scanLeDevice(true);
+                    }
+                });
+            }
+        } catch (Exception e) {
+            Log.e(TAG, "Error initializing listeners", e);
+        }
     }
 
     private void checkPermissions() {
@@ -278,53 +350,50 @@ public class MainActivity extends ListActivity {
     }
 
     private void updateConnectionState(final int resourceId) {
-        runOnUiThread(new Runnable() {
-            @Override
-            public void run() {
-                if (actionBar != null) {
-                    actionBar.setTitle(String.format(Locale.US, "%s (%s)", mDeviceName, mDeviceAddress));
-                    actionBar.setSubtitle(getString(resourceId));
-                    actionBar.setDisplayHomeAsUpEnabled(true);
-                }
+        runOnUiThread(() -> {
+            if (getSupportActionBar() != null) {
+                getSupportActionBar().setTitle(String.format(Locale.US, "%s (%s)", mDeviceName, mDeviceAddress));
+                getSupportActionBar().setSubtitle(getString(resourceId));
             }
         });
     }
 
     private void scanLeDevice(final boolean enable) {
-
-        if (enable) {
-            listContainer.setVisibility(View.VISIBLE);
-        }
-
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-            if (ActivityCompat.checkSelfPermission(this, Manifest.permission.BLUETOOTH_SCAN) != PackageManager.PERMISSION_GRANTED) {
-                Log.e(TAG, "checkSelfPermission failed: BLUETOOTH_SCAN");
-                return;
-            }
+        if (mBluetoothAdapter == null || listContainer == null || fabScan == null) {
+            Log.e(TAG, "Required components not initialized");
+            return;
         }
 
         if (enable) {
-            // Stops scanning after a pre-defined scan period.
-            mHandler.postDelayed(new Runnable() {
-                @Override
-                public void run() {
-                    mScanning = false;
-                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-                        if (ActivityCompat.checkSelfPermission(MainActivity.this, Manifest.permission.BLUETOOTH_SCAN) != PackageManager.PERMISSION_GRANTED) {
-                            Log.e(TAG, "checkSelfPermission failed: BLUETOOTH_SCAN");
-                            return;
-                        }
+            // Stops scanning after a predefined scan period.
+            mHandler.postDelayed(() -> {
+                mScanning = false;
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                    if (ActivityCompat.checkSelfPermission(MainActivity.this, Manifest.permission.BLUETOOTH_SCAN) != PackageManager.PERMISSION_GRANTED) {
+                        Log.e(TAG, "checkSelfPermission failed: BLUETOOTH_SCAN");
+                        return;
                     }
-                    mBluetoothAdapter.stopLeScan(mLeScanCallback);
-                    invalidateOptionsMenu();
                 }
+                mBluetoothAdapter.stopLeScan(mLeScanCallback);
+                fabScan.setImageResource(android.R.drawable.ic_search_category_default);
             }, SCAN_PERIOD);
 
             mScanning = true;
+            listContainer.setVisibility(View.VISIBLE);
+            fabScan.setImageResource(android.R.drawable.ic_menu_close_clear_cancel);
             mBluetoothAdapter.startLeScan(mLeScanCallback);
         } else {
             mScanning = false;
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                if (ActivityCompat.checkSelfPermission(this, Manifest.permission.BLUETOOTH_SCAN) != PackageManager.PERMISSION_GRANTED) {
+                    Log.e(TAG, "checkSelfPermission failed: BLUETOOTH_SCAN");
+                    return;
+                }
+            }
             mBluetoothAdapter.stopLeScan(mLeScanCallback);
+            fabScan.setImageResource(android.R.drawable.ic_search_category_default);
+            // Remove any pending scan timeout
+            mHandler.removeCallbacksAndMessages(null);
         }
         invalidateOptionsMenu();
     }
@@ -396,7 +465,7 @@ public class MainActivity extends ListActivity {
         getMenuInflater().inflate(R.menu.main, menu);
         if (!mScanning) {
             menu.findItem(R.id.menu_stop).setVisible(false);
-            menu.findItem(R.id.menu_scan).setVisible(true);
+            menu.findItem(R.id.menu_scan).setVisible(false); // Hide menu scan button since we use FAB
             menu.findItem(R.id.menu_refresh).setActionView(null);
         } else {
             menu.findItem(R.id.menu_stop).setVisible(true);
@@ -422,14 +491,6 @@ public class MainActivity extends ListActivity {
                 break;
         }
         return true;
-    }
-
-    @Override
-    protected void onListItemClick(ListView l, View v, int position, long id) {
-        final BluetoothDevice device = mLeDeviceListAdapter.getDevice(position);
-        if (device == null) return;
-        mLeDeviceListAdapter.clear();
-        connectTo(device);
     }
 
     // Device scan callback.

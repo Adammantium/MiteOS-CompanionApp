@@ -68,4 +68,18 @@
     <string name="hass_token">Home Assistant API Token</string>
     <string name="test">test</string>
 
+    <string name="hass_list_header">Home Assistant Entities</string>
+    <string name="hass_list_add">Add New Entity</string>
+    <string name="hass_list_name">Name</string>
+    <string name="hass_list_key">Entity ID</string>
+    <string name="hass_list_add_dialog_title">Add New Entity</string>
+    <string name="hass_list_empty">No entities added yet</string>
+    <string name="hass_list_manage">Manage Entities</string>
+    <string name="hass_list_edit">Edit Entity</string>
+
+    <!-- Media Playback Settings -->
+    <string name="media_playback_header">Media Playback</string>
+    <string name="dither_album_cover_title">Dither Album Cover</string>
+    <string name="dither_album_cover_summary">Apply dithering to album covers to improve display on e-paper screens</string>
+
 </resources>

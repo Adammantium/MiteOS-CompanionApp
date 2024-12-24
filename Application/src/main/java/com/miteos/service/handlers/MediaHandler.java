@@ -5,6 +5,7 @@ import android.app.NotificationChannel;
 import android.app.NotificationManager;
 import android.content.ComponentName;
 import android.content.Context;
+import android.content.SharedPreferences;
 import android.graphics.Bitmap;
 import android.graphics.Color;
 import android.graphics.drawable.Icon;
@@ -18,6 +19,7 @@ import android.util.Log;
 import androidx.annotation.NonNull;
 import androidx.core.app.NotificationCompat;
 import androidx.core.graphics.drawable.IconCompat;
+import androidx.preference.PreferenceManager;
 
 import com.miteos.activity.MainActivity;
 import com.miteos.func.SteinbergDithering;import com.miteos.service.MainService;
@@ -77,6 +79,7 @@ public class MediaHandler {
         MediaController session = getPlaybackSession();
 
         if(session == null) return null;
+        if(session.getMetadata() == null) return null;
 
         return new MediaInfo(session);
     }
@@ -133,11 +136,16 @@ public class MediaHandler {
     public static String GenerateImage(Bitmap src) {
         if(src == null) return "";
 
-        int size = 48;
+        int size = 96;
 
 
         Bitmap bmp = Bitmap.createScaledBitmap(src, size, size, false);
-        bmp = SteinbergDithering.floydSteinbergDithering(bmp);
+
+        SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(MainService.instance);
+        boolean shouldDither = prefs.getBoolean("dither_album_cover", false);
+        if(shouldDither) {
+            bmp = SteinbergDithering.floydSteinbergDithering(bmp);
+        }
 
         /*ByteArrayOutputStream byteArrayOutputStream = new ByteArrayOutputStream();
         bmp.compress(Bitmap.CompressFormat.PNG, 100, byteArrayOutputStream);
@@ -149,7 +157,7 @@ public class MediaHandler {
         byteArray = byteArrayOutputStream .toByteArray();
         Log.e("2", Base64.getEncoder().encodeToString(byteArray));*/
 
-        boolean bits[]= new boolean[size * size];
+        boolean bits[] = new boolean[size * size];
 
         //String test = "";
         for (int y = 0; y < bmp.getHeight(); y++) {

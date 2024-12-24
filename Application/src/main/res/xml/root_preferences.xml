@@ -26,6 +26,22 @@
             app:persistent="false"
             app:title="@string/hass_token"/>
 
+        <Preference
+            app:key="hass_list_manage"
+            app:persistent="false"
+            app:title="@string/hass_list_manage"/>
+
+    </PreferenceCategory>
+
+    <PreferenceCategory
+        app:title="@string/media_playback_header">
+
+        <SwitchPreferenceCompat
+            app:key="dither_album_cover"
+            app:title="@string/dither_album_cover_title"
+            app:summary="@string/dither_album_cover_summary"
+            app:defaultValue="false"/>
+
     </PreferenceCategory>
 
 </PreferenceScreen>

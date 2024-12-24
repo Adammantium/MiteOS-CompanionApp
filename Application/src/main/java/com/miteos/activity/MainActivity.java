@@ -134,10 +134,10 @@ public class MainActivity extends AppCompatActivity {
         intentFilter.addAction(BLE_Service.ACTION_DATA_AVAILABLE);
         registerReceiver(mGattUpdateReceiver, intentFilter);
 
-        // Only update adapter if it's null and listView is available
-        if (mLeDeviceListAdapter == null && listView != null) {
+        // Only update adapter if it's null
+        if (mLeDeviceListAdapter == null) {
             mLeDeviceListAdapter = new LeDeviceListAdapter();
-            listView.setAdapter(mLeDeviceListAdapter);
+            setupListView();
         }
     }
 
@@ -240,23 +240,33 @@ public class MainActivity extends AppCompatActivity {
                 listContainer.setVisibility(View.GONE);
             }
 
-            // Initialize adapter and set click listener
+            // Initialize adapter
             mLeDeviceListAdapter = new LeDeviceListAdapter();
-            if (listView != null) {
-                listView.setAdapter(mLeDeviceListAdapter);
-                listView.setOnItemClickListener((parent, view, position, id) -> {
-                    if (mLeDeviceListAdapter != null) {
-                        final BluetoothDevice device = mLeDeviceListAdapter.getDevice(position);
-                        if (device == null) return;
-                        mLeDeviceListAdapter.clear();
-                        connectTo(device);
-                    }
-                });
-            }
+            
+            setupListView();
         } catch (Exception e) {
             Log.e(TAG, "Error initializing UI components", e);
             Toast.makeText(this, "Error initializing UI components", Toast.LENGTH_SHORT).show();
             finish();
+        }
+    }
+
+    private void setupListView() {
+        if (listView != null) {
+            Log.d(TAG, "Setting up ListView and click listener");
+            listView.setAdapter(mLeDeviceListAdapter);
+            
+            listView.setOnItemClickListener((parent, view, position, id) -> {
+                Log.d(TAG, "Device clicked at position: " + position);
+                final BluetoothDevice device = mLeDeviceListAdapter.getDevice(position);
+                if (device != null) {
+                    Log.d(TAG, "Selected device: " + device.getAddress());
+                    scanLeDevice(false);  // Stop scanning before connecting
+                    connectTo(device);
+                }
+            });
+        } else {
+            Log.e(TAG, "ListView is null!");
         }
     }
 
@@ -291,21 +301,32 @@ public class MainActivity extends AppCompatActivity {
             if ((checkSelfPermission(Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED) ||
                     (checkSelfPermission(Manifest.permission.ACCESS_COARSE_LOCATION) != PackageManager.PERMISSION_GRANTED) ||
                     (checkSelfPermission(Manifest.permission.BLUETOOTH_SCAN) != PackageManager.PERMISSION_GRANTED) ||
-                    (checkSelfPermission(Manifest.permission.BLUETOOTH_CONNECT) != PackageManager.PERMISSION_GRANTED)) {
+                    (checkSelfPermission(Manifest.permission.BLUETOOTH_CONNECT) != PackageManager.PERMISSION_GRANTED) ||
+                    (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU && 
+                     checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED)) {
 
                 AlertDialog.Builder builder = new AlertDialog.Builder(new ContextThemeWrapper(this, R.style.AlertDialogCustom));
                 builder.setTitle(getString(R.string.app_name));
                 builder.setMessage(getString(R.string.permission_request));
-                builder.setPositiveButton(getString(android.R.string.ok), new DialogInterface.OnClickListener() {
-                    public void onClick(DialogInterface dialog, int which) {
-
-                        requestPermissions(new String[]{
-                                        Manifest.permission.BLUETOOTH_SCAN,
-                                        Manifest.permission.BLUETOOTH_CONNECT,
-                                        Manifest.permission.ACCESS_FINE_LOCATION,
-                                        Manifest.permission.ACCESS_COARSE_LOCATION},
-                                REQUEST);
+                builder.setPositiveButton(getString(android.R.string.ok), (dialog, which) -> {
+                    String[] permissions;
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                        permissions = new String[]{
+                            Manifest.permission.BLUETOOTH_SCAN,
+                            Manifest.permission.BLUETOOTH_CONNECT,
+                            Manifest.permission.ACCESS_FINE_LOCATION,
+                            Manifest.permission.ACCESS_COARSE_LOCATION,
+                            Manifest.permission.POST_NOTIFICATIONS
+                        };
+                    } else {
+                        permissions = new String[]{
+                            Manifest.permission.BLUETOOTH_SCAN,
+                            Manifest.permission.BLUETOOTH_CONNECT,
+                            Manifest.permission.ACCESS_FINE_LOCATION,
+                            Manifest.permission.ACCESS_COARSE_LOCATION
+                        };
                     }
+                    requestPermissions(permissions, REQUEST);
                 });
                 builder.show();
             }
@@ -316,14 +337,11 @@ public class MainActivity extends AppCompatActivity {
                 AlertDialog.Builder builder = new AlertDialog.Builder(new ContextThemeWrapper(this, R.style.AlertDialogCustom));
                 builder.setTitle(getString(R.string.app_name));
                 builder.setMessage(getString(R.string.permission_request));
-                builder.setPositiveButton(getString(android.R.string.ok), new DialogInterface.OnClickListener() {
-                    public void onClick(DialogInterface dialog, int which) {
-
-                        requestPermissions(new String[]{
-                                        Manifest.permission.ACCESS_FINE_LOCATION,
-                                        Manifest.permission.ACCESS_COARSE_LOCATION},
-                                REQUEST);
-                    }
+                builder.setPositiveButton(getString(android.R.string.ok), (dialog, which) -> {
+                    requestPermissions(new String[]{
+                            Manifest.permission.ACCESS_FINE_LOCATION,
+                            Manifest.permission.ACCESS_COARSE_LOCATION},
+                            REQUEST);
                 });
                 builder.show();
             }
@@ -399,33 +417,66 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void connectTo(BluetoothDevice device) {
-
-        listContainer.setVisibility(View.GONE);
-
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-            if (ActivityCompat.checkSelfPermission(this, Manifest.permission.BLUETOOTH_CONNECT) != PackageManager.PERMISSION_GRANTED) {
-                Log.e(TAG, "checkSelfPermission failed: BLUETOOTH_CONNECT");
-                return;
-            }
+        if (device == null) {
+            Log.e(TAG, "Cannot connect to null device");
+            return;
         }
-
-        if (mScanning) {
-            mBluetoothAdapter.stopLeScan(mLeScanCallback);
-            mScanning = false;
-        }
-
-        stopMyService();
-
+        
+        Log.d(TAG, "Connecting to device: " + device.getAddress() + " (Name: " + 
+              (device.getName() != null ? device.getName() : getString(R.string.unknown_device)) + ")");
+        
+        // Update local variables
         mDeviceAddress = device.getAddress();
-        mDeviceName = device.getName();
+        mDeviceName = device.getName() != null ? device.getName() : getString(R.string.unknown_device);
+        
+        // Save the new device address and name to preferences
+        SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(this);
+        SharedPreferences.Editor editor = prefs.edit();
+        editor.putString(DEVICE_ADDRESS, mDeviceAddress);
+        editor.putString(DEVICE_NAME, mDeviceName);
+        editor.apply();
+        
+        Log.d(TAG, "Saved new device info to preferences - Address: " + mDeviceAddress + ", Name: " + mDeviceName);
 
-        SharedPreferences sharedPreferences = PreferenceManager.getDefaultSharedPreferences(getApplicationContext());
-        SharedPreferences.Editor esp = sharedPreferences.edit();
-        esp.putString(DEVICE_NAME, mDeviceName);
-        esp.putString(DEVICE_ADDRESS, mDeviceAddress);
-        esp.commit();
+        // Update UI
+        if (listContainer != null) {
+            listContainer.setVisibility(View.GONE);
+        }
 
-        startMyService();
+        // Stop scanning
+        scanLeDevice(false);
+
+        // First unbind and stop existing services
+        try {
+            Log.d(TAG, "Stopping existing services");
+            stopService(new Intent(this, BLE_Service.class));
+            stopService(new Intent(this, MainService.class));
+        } catch (Exception e) {
+            Log.e(TAG, "Error stopping services", e);
+        }
+        
+        // Wait a bit before starting the services again
+        new Handler(Looper.getMainLooper()).postDelayed(() -> {
+            try {
+                Log.d(TAG, "Starting services for new device");
+                
+                // Start BLE service first
+                Intent bleIntent = new Intent(this, BLE_Service.class);
+                startService(bleIntent);
+                
+                // Then start main service
+                Intent mainIntent = new Intent(this, MainService.class);
+                mainIntent.putExtra(DEVICE_ADDRESS, mDeviceAddress);
+                mainIntent.putExtra(DEVICE_NAME, mDeviceName);
+                startService(mainIntent);
+                
+                Log.d(TAG, "Services started, finishing activity");
+                finish();
+            } catch (Exception e) {
+                Log.e(TAG, "Error starting services", e);
+                Toast.makeText(this, "Error connecting to device", Toast.LENGTH_SHORT).show();
+            }
+        }, 1000); // Wait 1 second before restarting services
     }
 
     ///////////////
@@ -496,14 +547,20 @@ public class MainActivity extends AppCompatActivity {
     // Device scan callback.
     private BluetoothAdapter.LeScanCallback mLeScanCallback =
             new BluetoothAdapter.LeScanCallback() {
-
                 @Override
                 public void onLeScan(final BluetoothDevice device, int rssi, byte[] scanRecord) {
+                    Log.d(TAG, "Device found: " + device.getAddress() + 
+                          " Name: " + (device.getName() != null ? device.getName() : "Unknown"));
                     runOnUiThread(new Runnable() {
                         @Override
                         public void run() {
-                            mLeDeviceListAdapter.addDevice(device);
-                            mLeDeviceListAdapter.notifyDataSetChanged();
+                            if (mLeDeviceListAdapter != null) {
+                                mLeDeviceListAdapter.addDevice(device);
+                                mLeDeviceListAdapter.notifyDataSetChanged();
+                                Log.d(TAG, "Device added to adapter, total devices: " + mLeDeviceListAdapter.getCount());
+                            } else {
+                                Log.e(TAG, "Adapter is null in onLeScan!");
+                            }
                         }
                     });
                 }
@@ -528,19 +585,23 @@ public class MainActivity extends AppCompatActivity {
             super();
             mLeDevices = new ArrayList<BluetoothDevice>();
             mInflator = MainActivity.this.getLayoutInflater();
+            Log.d(TAG, "LeDeviceListAdapter initialized");
         }
 
         public void addDevice(BluetoothDevice device) {
             if (!mLeDevices.contains(device)) {
+                Log.d(TAG, "Adding device: " + device.getAddress());
                 mLeDevices.add(device);
             }
         }
 
         public BluetoothDevice getDevice(int position) {
+            Log.d(TAG, "Getting device at position: " + position);
             return mLeDevices.get(position);
         }
 
         public void clear() {
+            Log.d(TAG, "Clearing device list");
             mLeDevices.clear();
         }
 
@@ -563,12 +624,11 @@ public class MainActivity extends AppCompatActivity {
         @Override
         public View getView(int i, View view, ViewGroup viewGroup) {
             ViewHolder viewHolder;
-            // General ListView optimization code.
             if (view == null) {
                 view = mInflator.inflate(R.layout.listitem_device, null);
                 viewHolder = new ViewHolder();
-                viewHolder.deviceAddress = (TextView) view.findViewById(R.id.device_address);
-                viewHolder.deviceName = (TextView) view.findViewById(R.id.device_name);
+                viewHolder.deviceAddress = view.findViewById(R.id.device_address);
+                viewHolder.deviceName = view.findViewById(R.id.device_name);
                 view.setTag(viewHolder);
             } else {
                 viewHolder = (ViewHolder) view.getTag();

@@ -256,7 +256,8 @@ public class MainService extends Service {
                         SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(context);
                         String haasUrl = prefs.getString("hassUrl", "http://127.0.0.1");
                         String haasToken = prefs.getString("hass_token", "");
-                        sendData("{ \"hassUrl\": \"" + haasUrl + "\", \"hassTkn\": \"" + haasToken + "\" }");
+                        String entities = prefs.getString("hass_list_items", "[]");
+                        sendData("{ \"hassUrl\": \"" + haasUrl + "\", \"hassTkn\": \"" + haasToken + "\", \"entities\": " + entities + " }");
                     } else {
                         Log.e(TAG, "Unknown command: " + data);
                     }
@@ -319,17 +320,28 @@ public class MainService extends Service {
 
         Log.d(TAG, "Sending data with length " + length + " using MTU size " + mMtuSize);
 
+        // Create a handler for delayed writes
+        Handler writeHandler = new Handler(Looper.getMainLooper());
+        final int WRITE_DELAY_MS = 50; // 50ms delay between writes
+
         while (offset < length) {
+            final int currentOffset = offset;
             int chunkSize = Math.min(maxChunkSize, length - offset);
-            String chunk = data.substring(offset, offset + chunkSize);
+            String chunk = data.substring(currentOffset, currentOffset + chunkSize);
             
-            byte[] bytes = chunk.getBytes();
-            mWriteCharacteristic.setValue(bytes);
-            
-            Log.d(TAG, "Writing chunk " + (offset/maxChunkSize + 1) + " of " + ((length + maxChunkSize - 1)/maxChunkSize) + 
-                  " size: " + bytes.length);
-            mBLEService.writeCharacteristic(mWriteCharacteristic);
-            
+            // Schedule the write with a delay
+            writeHandler.postDelayed(() -> {
+                byte[] bytes = chunk.getBytes();
+                mWriteCharacteristic.setValue(bytes);
+                
+                Log.d(TAG, "Writing chunk " + (currentOffset/maxChunkSize + 1) + " of " + 
+                      ((length + maxChunkSize - 1)/maxChunkSize) + " size: " + bytes.length);
+                
+                // Set write type to no response for faster transmission
+                mWriteCharacteristic.setWriteType(BluetoothGattCharacteristic.WRITE_TYPE_NO_RESPONSE);
+                mBLEService.writeCharacteristic(mWriteCharacteristic);
+            }, (currentOffset/maxChunkSize) * WRITE_DELAY_MS);
+
             offset += chunkSize;
         }
     }
@@ -462,14 +474,26 @@ public class MainService extends Service {
                 UUID.fromString("00002902-0000-1000-8000-00805f9b34fb")); // Client Characteristic Configuration
         if (descriptor != null) {
             Log.d(TAG, "Found notification descriptor, setting value");
+            
             // Check if the characteristic has the NOTIFY property
             if ((characteristic.getProperties() & BluetoothGattCharacteristic.PROPERTY_NOTIFY) != 0) {
                 byte[] value = enabled ? BluetoothGattDescriptor.ENABLE_NOTIFICATION_VALUE : 
-                                       BluetoothGattDescriptor.DISABLE_NOTIFICATION_VALUE;
+                                     BluetoothGattDescriptor.DISABLE_NOTIFICATION_VALUE;
                 boolean success = descriptor.setValue(value);
                 if (success) {
-                    mBLEService.writeDescriptor(descriptor);
-                    Log.d(TAG, "Descriptor write initiated for NOTIFY");
+                    // Add a small delay before writing the descriptor
+                    new Handler(Looper.getMainLooper()).postDelayed(() -> {
+                        mBLEService.writeDescriptor(descriptor);
+                        Log.d(TAG, "Descriptor write initiated for NOTIFY");
+                        
+                        // Add a retry mechanism if the write fails
+                        new Handler(Looper.getMainLooper()).postDelayed(() -> {
+                            if (!characteristic.getDescriptor(descriptor.getUuid()).getValue().equals(value)) {
+                                Log.d(TAG, "Retrying descriptor write for NOTIFY");
+                                mBLEService.writeDescriptor(descriptor);
+                            }
+                        }, 1000); // Check after 1 second
+                    }, 100); // 100ms delay before first write
                 } else {
                     Log.e(TAG, "Failed to set descriptor value for NOTIFY");
                 }
@@ -477,11 +501,22 @@ public class MainService extends Service {
             // Check if the characteristic has the INDICATE property
             else if ((characteristic.getProperties() & BluetoothGattCharacteristic.PROPERTY_INDICATE) != 0) {
                 byte[] value = enabled ? BluetoothGattDescriptor.ENABLE_INDICATION_VALUE : 
-                                       BluetoothGattDescriptor.DISABLE_NOTIFICATION_VALUE;
+                                     BluetoothGattDescriptor.DISABLE_NOTIFICATION_VALUE;
                 boolean success = descriptor.setValue(value);
                 if (success) {
-                    mBLEService.writeDescriptor(descriptor);
-                    Log.d(TAG, "Descriptor write initiated for INDICATE");
+                    // Add a small delay before writing the descriptor
+                    new Handler(Looper.getMainLooper()).postDelayed(() -> {
+                        mBLEService.writeDescriptor(descriptor);
+                        Log.d(TAG, "Descriptor write initiated for INDICATE");
+                        
+                        // Add a retry mechanism if the write fails
+                        new Handler(Looper.getMainLooper()).postDelayed(() -> {
+                            if (!characteristic.getDescriptor(descriptor.getUuid()).getValue().equals(value)) {
+                                Log.d(TAG, "Retrying descriptor write for INDICATE");
+                                mBLEService.writeDescriptor(descriptor);
+                            }
+                        }, 1000); // Check after 1 second
+                    }, 100); // 100ms delay before first write
                 } else {
                     Log.e(TAG, "Failed to set descriptor value for INDICATE");
                 }

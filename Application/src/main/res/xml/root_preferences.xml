@@ -34,6 +34,16 @@
     </PreferenceCategory>
 
     <PreferenceCategory
+        app:title="@string/totp_header">
+
+        <Preference
+            app:key="totp_list_manage"
+            app:persistent="false"
+            app:title="@string/totp_list_manage"/>
+
+    </PreferenceCategory>
+
+    <PreferenceCategory
         app:title="@string/media_playback_header">
 
         <SwitchPreferenceCompat

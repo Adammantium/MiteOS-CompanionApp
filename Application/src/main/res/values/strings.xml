@@ -82,4 +82,13 @@
     <string name="dither_album_cover_title">Dither Album Cover</string>
     <string name="dither_album_cover_summary">Apply dithering to album covers to improve display on e-paper screens</string>
 
+    <!-- TOTP Settings -->
+    <string name="totp_header">TOTP Authentication</string>
+    <string name="totp_list_manage">Manage TOTP Entries</string>
+    <string name="totp_list_add_dialog_title">Add New TOTP Entry</string>
+    <string name="totp_list_empty">No TOTP entries added yet</string>
+    <string name="totp_list_name">Account Name</string>
+    <string name="totp_list_token">Secret Token</string>
+    <string name="totp_list_edit">Edit TOTP Entry</string>
+
 </resources>

@@ -48,6 +48,9 @@ public class OverviewActivity extends AppCompatActivity {
         private static final String HASS_LIST_ITEMS = "hass_list_items";
         private static final String HASS_LIST_ITEM_NAME = "name";
         private static final String HASS_LIST_ITEM_KEY = "key";
+        private static final String TOTP_LIST_ITEMS = "totp_list_items";
+        private static final String TOTP_LIST_ITEM_NAME = "name";
+        private static final String TOTP_LIST_ITEM_TOKEN = "token";
 
         @Override
         public void onCreatePreferences(Bundle savedInstanceState, String rootKey) {
@@ -70,6 +73,9 @@ public class OverviewActivity extends AppCompatActivity {
 
             // Handle Home Assistant List Management
             setupHassListManagement();
+
+            // Handle TOTP List Management
+            setupTotpListManagement();
         }
 
         private void setupHassUrlPreference() {
@@ -376,6 +382,218 @@ public class OverviewActivity extends AppCompatActivity {
                 } catch (Exception e) {
                     Log.e("Preferences", "Error deleting item", e);
                     Toast.makeText(context, "Error deleting entity", Toast.LENGTH_SHORT).show();
+                }
+            });
+            deleteBuilder.setPositiveButton("Cancel", (dialog, which) -> dialog.dismiss());
+            deleteBuilder.show();
+        }
+
+        private void setupTotpListManagement() {
+            Preference totpListPref = findPreference("totp_list_manage");
+            if (totpListPref != null) {
+                totpListPref.setOnPreferenceClickListener(preference -> {
+                    try {
+                        Context context = getContext();
+                        AlertDialog.Builder builder = new AlertDialog.Builder(context);
+                        builder.setTitle(R.string.totp_list_add_dialog_title);
+
+                        // Create layout for the dialog
+                        LinearLayout layout = new LinearLayout(context);
+                        layout.setOrientation(LinearLayout.VERTICAL);
+                        layout.setPadding(50, 20, 50, 0);
+
+                        // Add name input
+                        final EditText nameInput = new EditText(context);
+                        nameInput.setHint(R.string.totp_list_name);
+                        nameInput.setInputType(InputType.TYPE_CLASS_TEXT);
+                        layout.addView(nameInput);
+
+                        // Add some spacing
+                        View spacing = new View(context);
+                        spacing.setLayoutParams(new LinearLayout.LayoutParams(
+                            LinearLayout.LayoutParams.MATCH_PARENT, 20));
+                        layout.addView(spacing);
+
+                        // Add token input
+                        final EditText tokenInput = new EditText(context);
+                        tokenInput.setHint(R.string.totp_list_token);
+                        tokenInput.setInputType(InputType.TYPE_CLASS_TEXT);
+                        layout.addView(tokenInput);
+
+                        builder.setView(layout);
+
+                        builder.setPositiveButton("Add", (dialog, which) -> {
+                            String name = nameInput.getText().toString().trim();
+                            String token = tokenInput.getText().toString().trim();
+
+                            if (!name.isEmpty() && !token.isEmpty()) {
+                                SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(context);
+                                String listItemsJson = prefs.getString(TOTP_LIST_ITEMS, "[]");
+                                try {
+                                    JSONArray listItems = new JSONArray(listItemsJson);
+                                    JSONObject newItem = new JSONObject();
+                                    newItem.put(TOTP_LIST_ITEM_NAME, name);
+                                    newItem.put(TOTP_LIST_ITEM_TOKEN, token);
+                                    listItems.put(newItem);
+
+                                    SharedPreferences.Editor editor = prefs.edit();
+                                    editor.putString(TOTP_LIST_ITEMS, listItems.toString());
+                                    editor.apply();
+
+                                    Toast.makeText(context, "TOTP entry added successfully", Toast.LENGTH_SHORT).show();
+                                    showTotpListItems(context);
+                                } catch (JSONException e) {
+                                    Log.e("Preferences", "Error saving TOTP entry", e);
+                                    Toast.makeText(context, "Error saving entry", Toast.LENGTH_SHORT).show();
+                                }
+                            } else {
+                                Toast.makeText(context, "Both name and token are required", Toast.LENGTH_SHORT).show();
+                            }
+                        });
+
+                        builder.setNegativeButton("Cancel", (dialog, which) -> dialog.cancel());
+
+                        // Add "View List" button
+                        builder.setNeutralButton("View List", (dialog, which) -> {
+                            showTotpListItems(context);
+                        });
+
+                        builder.show();
+                        return true;
+                    } catch (Exception e) {
+                        Log.e("Preferences", "Error showing TOTP list management dialog", e);
+                        return false;
+                    }
+                });
+            }
+        }
+
+        private void showTotpListItems(Context context) {
+            SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(context);
+            String listItemsJson = prefs.getString(TOTP_LIST_ITEMS, "[]");
+            try {
+                JSONArray listItems = new JSONArray(listItemsJson);
+                if (listItems.length() == 0) {
+                    Toast.makeText(context, R.string.totp_list_empty, Toast.LENGTH_SHORT).show();
+                    return;
+                }
+
+                AlertDialog.Builder builder = new AlertDialog.Builder(context);
+                builder.setTitle("Saved TOTP Entries");
+
+                // Create list of items
+                String[] items = new String[listItems.length()];
+                for (int i = 0; i < listItems.length(); i++) {
+                    JSONObject item = listItems.getJSONObject(i);
+                    items[i] = item.getString(TOTP_LIST_ITEM_NAME);
+                }
+
+                builder.setItems(items, (dialog, which) -> {
+                    // Show edit dialog when item is clicked
+                    showTotpEditDialog(context, listItems, which);
+                });
+
+                // Add delete option
+                builder.setNeutralButton("Delete", (dialog, which) -> {
+                    showTotpDeleteDialog(context, items, listItems);
+                });
+
+                builder.setPositiveButton("Close", (dialog, which) -> dialog.dismiss());
+
+                builder.show();
+            } catch (JSONException e) {
+                Log.e("Preferences", "Error showing TOTP list items", e);
+                Toast.makeText(context, "Error showing items", Toast.LENGTH_SHORT).show();
+            }
+        }
+
+        private void showTotpEditDialog(Context context, JSONArray listItems, int position) {
+            try {
+                JSONObject item = listItems.getJSONObject(position);
+                String currentName = item.getString(TOTP_LIST_ITEM_NAME);
+                String currentToken = item.getString(TOTP_LIST_ITEM_TOKEN);
+
+                AlertDialog.Builder builder = new AlertDialog.Builder(context);
+                builder.setTitle(R.string.totp_list_edit);
+
+                // Create layout for the dialog
+                LinearLayout layout = new LinearLayout(context);
+                layout.setOrientation(LinearLayout.VERTICAL);
+                layout.setPadding(50, 20, 50, 0);
+
+                // Add name input
+                final EditText nameInput = new EditText(context);
+                nameInput.setHint(R.string.totp_list_name);
+                nameInput.setText(currentName);
+                nameInput.setInputType(InputType.TYPE_CLASS_TEXT);
+                layout.addView(nameInput);
+
+                // Add some spacing
+                View spacing = new View(context);
+                spacing.setLayoutParams(new LinearLayout.LayoutParams(
+                    LinearLayout.LayoutParams.MATCH_PARENT, 20));
+                layout.addView(spacing);
+
+                // Add token input
+                final EditText tokenInput = new EditText(context);
+                tokenInput.setHint(R.string.totp_list_token);
+                tokenInput.setText(currentToken);
+                tokenInput.setInputType(InputType.TYPE_CLASS_TEXT);
+                layout.addView(tokenInput);
+
+                builder.setView(layout);
+
+                builder.setPositiveButton("Save", (dialog, which) -> {
+                    String name = nameInput.getText().toString().trim();
+                    String token = tokenInput.getText().toString().trim();
+
+                    if (!name.isEmpty() && !token.isEmpty()) {
+                        try {
+                            JSONObject updatedItem = new JSONObject();
+                            updatedItem.put(TOTP_LIST_ITEM_NAME, name);
+                            updatedItem.put(TOTP_LIST_ITEM_TOKEN, token);
+                            listItems.put(position, updatedItem);
+
+                            SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(context);
+                            SharedPreferences.Editor editor = prefs.edit();
+                            editor.putString(TOTP_LIST_ITEMS, listItems.toString());
+                            editor.apply();
+
+                            Toast.makeText(context, "TOTP entry updated successfully", Toast.LENGTH_SHORT).show();
+                            showTotpListItems(context);
+                        } catch (JSONException e) {
+                            Log.e("Preferences", "Error updating TOTP entry", e);
+                            Toast.makeText(context, "Error updating entry", Toast.LENGTH_SHORT).show();
+                        }
+                    } else {
+                        Toast.makeText(context, "Both name and token are required", Toast.LENGTH_SHORT).show();
+                    }
+                });
+
+                builder.setNegativeButton("Cancel", (dialog, which) -> dialog.cancel());
+
+                builder.show();
+            } catch (JSONException e) {
+                Log.e("Preferences", "Error showing TOTP edit dialog", e);
+                Toast.makeText(context, "Error editing entry", Toast.LENGTH_SHORT).show();
+            }
+        }
+
+        private void showTotpDeleteDialog(Context context, String[] items, JSONArray listItems) {
+            AlertDialog.Builder deleteBuilder = new AlertDialog.Builder(context);
+            deleteBuilder.setTitle("Select entry to delete");
+            deleteBuilder.setItems(items, (dialog, which) -> {
+                try {
+                    listItems.remove(which);
+                    SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(context);
+                    SharedPreferences.Editor editor = prefs.edit();
+                    editor.putString(TOTP_LIST_ITEMS, listItems.toString());
+                    editor.apply();
+                    Toast.makeText(context, "TOTP entry deleted", Toast.LENGTH_SHORT).show();
+                    showTotpListItems(context); // Refresh the list view
+                } catch (Exception e) {
+                    Log.e("Preferences", "Error deleting TOTP entry", e);
+                    Toast.makeText(context, "Error deleting entry", Toast.LENGTH_SHORT).show();
                 }
             });
             deleteBuilder.setPositiveButton("Cancel", (dialog, which) -> dialog.dismiss());

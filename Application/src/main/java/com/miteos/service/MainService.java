@@ -257,7 +257,10 @@ public class MainService extends Service {
                         String haasUrl = prefs.getString("hassUrl", "http://127.0.0.1");
                         String haasToken = prefs.getString("hass_token", "");
                         String entities = prefs.getString("hass_list_items", "[]");
-                        sendData("{ \"hassUrl\": \"" + haasUrl + "\", \"hassTkn\": \"" + haasToken + "\", \"entities\": " + entities + " }");
+
+                        String tokens = prefs.getString("totp_list_items", "[]");
+
+                        sendData("{ \"hassUrl\": \"" + haasUrl + "\", \"hassTkn\": \"" + haasToken + "\", \"entities\": " + entities + ", \"totp\": " + tokens + " }");
                     } else {
                         Log.e(TAG, "Unknown command: " + data);
                     }

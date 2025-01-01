@@ -1,11 +1,16 @@
 package com.miteos.activity;
 
-import android.app.Activity;
+import android.Manifest;
 import android.app.AlertDialog;
+import android.content.ContentResolver;
 import android.content.Context;
 import android.content.Intent;
 import android.content.SharedPreferences;
+import android.content.pm.PackageManager;
+import android.database.Cursor;
+import android.net.Uri;
 import android.os.Bundle;
+import android.provider.CalendarContract;
 import android.text.InputType;
 import android.util.Log;
 import android.view.View;
@@ -15,6 +20,7 @@ import android.widget.Toast;
 
 import androidx.appcompat.app.ActionBar;
 import androidx.appcompat.app.AppCompatActivity;
+import androidx.core.app.ActivityCompat;
 import androidx.preference.EditTextPreference;
 import androidx.preference.Preference;
 import androidx.preference.PreferenceFragmentCompat;
@@ -23,6 +29,10 @@ import androidx.preference.PreferenceManager;
 import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
+
+import java.util.ArrayList;
+import java.util.HashSet;
+import java.util.Set;
 
 public class OverviewActivity extends AppCompatActivity {
 
@@ -51,6 +61,7 @@ public class OverviewActivity extends AppCompatActivity {
         private static final String TOTP_LIST_ITEMS = "totp_list_items";
         private static final String TOTP_LIST_ITEM_NAME = "name";
         private static final String TOTP_LIST_ITEM_TOKEN = "token";
+        private static final String CALENDAR_SYNC_ITEMS = "calendar_sync_items";
 
         @Override
         public void onCreatePreferences(Bundle savedInstanceState, String rootKey) {
@@ -76,6 +87,9 @@ public class OverviewActivity extends AppCompatActivity {
 
             // Handle TOTP List Management
             setupTotpListManagement();
+
+            // Handle Calendar Sync Management
+            setupCalendarManagement();
         }
 
         private void setupHassUrlPreference() {
@@ -468,6 +482,113 @@ public class OverviewActivity extends AppCompatActivity {
             }
         }
 
+        private void setupCalendarManagement() {
+            Preference calendarPref = findPreference("calendar_list_manage");
+            if (calendarPref != null) {
+                calendarPref.setOnPreferenceClickListener(preference -> {
+                    try {
+                        Context context = getContext();
+                        if (context == null) return false;
+
+                        // Check for calendar permission
+                        if (ActivityCompat.checkSelfPermission(context, Manifest.permission.READ_CALENDAR) 
+                            != PackageManager.PERMISSION_GRANTED) {
+                            
+                            requestPermissions(new String[]{Manifest.permission.READ_CALENDAR}, 1);
+                            Toast.makeText(context, R.string.calendar_permission_required, Toast.LENGTH_SHORT).show();
+                            return true;
+                        }
+
+                        // Get list of calendars
+                        ContentResolver contentResolver = context.getContentResolver();
+                        Uri uri = CalendarContract.Calendars.CONTENT_URI;
+                        String[] projection = new String[]{
+                            CalendarContract.Calendars._ID,
+                            CalendarContract.Calendars.CALENDAR_DISPLAY_NAME,
+                            CalendarContract.Calendars.ACCOUNT_NAME
+                        };
+
+                        Cursor cursor = contentResolver.query(uri, projection, null, null, null);
+                        if (cursor == null) {
+                            Toast.makeText(context, R.string.calendar_list_empty, Toast.LENGTH_SHORT).show();
+                            return true;
+                        }
+
+                        ArrayList<CalendarInfo> calendars = new ArrayList<>();
+                        SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(context);
+                        Set<String> selectedCalendars = prefs.getStringSet(CALENDAR_SYNC_ITEMS, new HashSet<>());
+
+                        while (cursor.moveToNext()) {
+                            long id = cursor.getLong(0);
+                            String displayName = cursor.getString(1);
+                            String accountName = cursor.getString(2);
+                            calendars.add(new CalendarInfo(id, displayName, accountName));
+                        }
+                        cursor.close();
+
+                        if (calendars.isEmpty()) {
+                            Toast.makeText(context, R.string.calendar_list_empty, Toast.LENGTH_SHORT).show();
+                            return true;
+                        }
+
+                        // Create dialog with checkboxes
+                        AlertDialog.Builder builder = new AlertDialog.Builder(context);
+                        builder.setTitle(R.string.calendar_list_title);
+
+                        String[] calendarNames = new String[calendars.size()];
+                        boolean[] checkedItems = new boolean[calendars.size()];
+                        
+                        for (int i = 0; i < calendars.size(); i++) {
+                            CalendarInfo calendar = calendars.get(i);
+                            calendarNames[i] = calendar.displayName + " (" + calendar.accountName + ")";
+                            checkedItems[i] = selectedCalendars.contains(String.valueOf(calendar.id));
+                        }
+
+                        builder.setMultiChoiceItems(calendarNames, checkedItems, (dialog, which, isChecked) -> {
+                            // Update checked state
+                            checkedItems[which] = isChecked;
+                        });
+
+                        builder.setPositiveButton("Save", (dialog, which) -> {
+                            // Save selected calendars
+                            Set<String> newSelection = new HashSet<>();
+                            for (int i = 0; i < calendars.size(); i++) {
+                                if (checkedItems[i]) {
+                                    newSelection.add(String.valueOf(calendars.get(i).id));
+                                }
+                            }
+                            
+                            SharedPreferences.Editor editor = prefs.edit();
+                            editor.putStringSet(CALENDAR_SYNC_ITEMS, newSelection);
+                            editor.apply();
+                            
+                            Toast.makeText(context, "Calendar selection saved", Toast.LENGTH_SHORT).show();
+                        });
+
+                        builder.setNegativeButton("Cancel", (dialog, which) -> dialog.cancel());
+
+                        builder.show();
+                        return true;
+                    } catch (Exception e) {
+                        Log.e("Preferences", "Error showing calendar management dialog", e);
+                        return false;
+                    }
+                });
+            }
+        }
+
+        private static class CalendarInfo {
+            long id;
+            String displayName;
+            String accountName;
+
+            CalendarInfo(long id, String displayName, String accountName) {
+                this.id = id;
+                this.displayName = displayName;
+                this.accountName = accountName;
+            }
+        }
+
         private void showTotpListItems(Context context) {
             SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(context);
             String listItemsJson = prefs.getString(TOTP_LIST_ITEMS, "[]");
@@ -479,9 +600,8 @@ public class OverviewActivity extends AppCompatActivity {
                 }
 
                 AlertDialog.Builder builder = new AlertDialog.Builder(context);
-                builder.setTitle("Saved TOTP Entries");
+                builder.setTitle("TOTP Entries");
 
-                // Create list of items
                 String[] items = new String[listItems.length()];
                 for (int i = 0; i < listItems.length(); i++) {
                     JSONObject item = listItems.getJSONObject(i);
@@ -489,56 +609,47 @@ public class OverviewActivity extends AppCompatActivity {
                 }
 
                 builder.setItems(items, (dialog, which) -> {
-                    // Show edit dialog when item is clicked
-                    showTotpEditDialog(context, listItems, which);
+                    // Show edit dialog for selected item
+                    JSONObject selectedItem;
+                    try {
+                        selectedItem = listItems.getJSONObject(which);
+                        showEditTotpDialog(context, selectedItem, which);
+                    } catch (JSONException e) {
+                        Log.e("Preferences", "Error getting selected item", e);
+                    }
                 });
 
-                // Add delete option
-                builder.setNeutralButton("Delete", (dialog, which) -> {
-                    showTotpDeleteDialog(context, items, listItems);
-                });
-
-                builder.setPositiveButton("Close", (dialog, which) -> dialog.dismiss());
+                builder.setPositiveButton("Close", null);
 
                 builder.show();
             } catch (JSONException e) {
-                Log.e("Preferences", "Error showing TOTP list items", e);
-                Toast.makeText(context, "Error showing items", Toast.LENGTH_SHORT).show();
+                Log.e("Preferences", "Error showing TOTP list", e);
+                Toast.makeText(context, "Error showing list", Toast.LENGTH_SHORT).show();
             }
         }
 
-        private void showTotpEditDialog(Context context, JSONArray listItems, int position) {
+        private void showEditTotpDialog(Context context, JSONObject item, int position) {
             try {
-                JSONObject item = listItems.getJSONObject(position);
-                String currentName = item.getString(TOTP_LIST_ITEM_NAME);
-                String currentToken = item.getString(TOTP_LIST_ITEM_TOKEN);
-
                 AlertDialog.Builder builder = new AlertDialog.Builder(context);
                 builder.setTitle(R.string.totp_list_edit);
 
-                // Create layout for the dialog
                 LinearLayout layout = new LinearLayout(context);
                 layout.setOrientation(LinearLayout.VERTICAL);
                 layout.setPadding(50, 20, 50, 0);
 
-                // Add name input
                 final EditText nameInput = new EditText(context);
                 nameInput.setHint(R.string.totp_list_name);
-                nameInput.setText(currentName);
-                nameInput.setInputType(InputType.TYPE_CLASS_TEXT);
+                nameInput.setText(item.getString(TOTP_LIST_ITEM_NAME));
                 layout.addView(nameInput);
 
-                // Add some spacing
                 View spacing = new View(context);
                 spacing.setLayoutParams(new LinearLayout.LayoutParams(
                     LinearLayout.LayoutParams.MATCH_PARENT, 20));
                 layout.addView(spacing);
 
-                // Add token input
                 final EditText tokenInput = new EditText(context);
                 tokenInput.setHint(R.string.totp_list_token);
-                tokenInput.setText(currentToken);
-                tokenInput.setInputType(InputType.TYPE_CLASS_TEXT);
+                tokenInput.setText(item.getString(TOTP_LIST_ITEM_TOKEN));
                 layout.addView(tokenInput);
 
                 builder.setView(layout);
@@ -548,18 +659,20 @@ public class OverviewActivity extends AppCompatActivity {
                     String token = tokenInput.getText().toString().trim();
 
                     if (!name.isEmpty() && !token.isEmpty()) {
+                        SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(context);
+                        String listItemsJson = prefs.getString(TOTP_LIST_ITEMS, "[]");
                         try {
+                            JSONArray listItems = new JSONArray(listItemsJson);
                             JSONObject updatedItem = new JSONObject();
                             updatedItem.put(TOTP_LIST_ITEM_NAME, name);
                             updatedItem.put(TOTP_LIST_ITEM_TOKEN, token);
                             listItems.put(position, updatedItem);
 
-                            SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(context);
                             SharedPreferences.Editor editor = prefs.edit();
                             editor.putString(TOTP_LIST_ITEMS, listItems.toString());
                             editor.apply();
 
-                            Toast.makeText(context, "TOTP entry updated successfully", Toast.LENGTH_SHORT).show();
+                            Toast.makeText(context, "TOTP entry updated", Toast.LENGTH_SHORT).show();
                             showTotpListItems(context);
                         } catch (JSONException e) {
                             Log.e("Preferences", "Error updating TOTP entry", e);
@@ -572,31 +685,43 @@ public class OverviewActivity extends AppCompatActivity {
 
                 builder.setNegativeButton("Cancel", (dialog, which) -> dialog.cancel());
 
+                builder.setNeutralButton("Delete", (dialog, which) -> {
+                    showDeleteTotpConfirmation(context, position);
+                });
+
                 builder.show();
             } catch (JSONException e) {
-                Log.e("Preferences", "Error showing TOTP edit dialog", e);
-                Toast.makeText(context, "Error editing entry", Toast.LENGTH_SHORT).show();
+                Log.e("Preferences", "Error showing edit dialog", e);
+                Toast.makeText(context, "Error showing edit dialog", Toast.LENGTH_SHORT).show();
             }
         }
 
-        private void showTotpDeleteDialog(Context context, String[] items, JSONArray listItems) {
+        private void showDeleteTotpConfirmation(Context context, int position) {
             AlertDialog.Builder deleteBuilder = new AlertDialog.Builder(context);
-            deleteBuilder.setTitle("Select entry to delete");
-            deleteBuilder.setItems(items, (dialog, which) -> {
+            deleteBuilder.setTitle("Delete TOTP Entry");
+            deleteBuilder.setMessage("Are you sure you want to delete this TOTP entry?");
+
+            deleteBuilder.setPositiveButton("Delete", (dialog, which) -> {
+                SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(context);
+                String listItemsJson = prefs.getString(TOTP_LIST_ITEMS, "[]");
                 try {
-                    listItems.remove(which);
-                    SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(context);
+                    JSONArray listItems = new JSONArray(listItemsJson);
+                    listItems.remove(position);
+
                     SharedPreferences.Editor editor = prefs.edit();
                     editor.putString(TOTP_LIST_ITEMS, listItems.toString());
                     editor.apply();
+
                     Toast.makeText(context, "TOTP entry deleted", Toast.LENGTH_SHORT).show();
-                    showTotpListItems(context); // Refresh the list view
-                } catch (Exception e) {
+                    showTotpListItems(context);
+                } catch (JSONException e) {
                     Log.e("Preferences", "Error deleting TOTP entry", e);
                     Toast.makeText(context, "Error deleting entry", Toast.LENGTH_SHORT).show();
                 }
             });
-            deleteBuilder.setPositiveButton("Cancel", (dialog, which) -> dialog.dismiss());
+
+            deleteBuilder.setNegativeButton("Cancel", (dialog, which) -> dialog.cancel());
+
             deleteBuilder.show();
         }
     }

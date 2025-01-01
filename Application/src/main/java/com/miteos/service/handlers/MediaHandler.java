@@ -42,6 +42,8 @@ public class MediaHandler {
         public String art;
         public long position;
         public long duration;
+        public long timestamp;
+        public boolean playing;
 
         public MediaInfo(MediaController controller) {
             title = controller.getMetadata().getString(MediaMetadata.METADATA_KEY_TITLE);
@@ -49,6 +51,8 @@ public class MediaHandler {
             artist = controller.getMetadata().getString(MediaMetadata.METADATA_KEY_ARTIST);
             position = controller.getPlaybackState().getPosition() / 1000;
             duration = controller.getMetadata().getLong(MediaMetadata.METADATA_KEY_DURATION) / 1000;
+            timestamp = System.currentTimeMillis() / 1000;
+            playing = controller.getPlaybackState().isActive();
 
             art = MediaHandler.GenerateImage(controller.getMetadata().getBitmap(MediaMetadata.METADATA_KEY_ALBUM_ART));
         }

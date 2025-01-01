@@ -1,9 +1,5 @@
 package com.miteos.service;
 
-import static com.miteos.service.BLE_Service.UUID_READ_FROM_ESP;
-import static com.miteos.service.BLE_Service.UUID_WRITE_TO_ESP;
-
-import android.Manifest;
 import android.app.Service;
 import android.bluetooth.BluetoothGattCharacteristic;
 import android.bluetooth.BluetoothGattDescriptor;
@@ -17,12 +13,8 @@ import android.content.ServiceConnection;
 import android.content.SharedPreferences;
 import android.content.pm.PackageManager;
 import android.graphics.Bitmap;
-import android.graphics.BitmapFactory;
 import android.graphics.Matrix;
 import android.graphics.drawable.Drawable;
-import android.media.MediaMetadata;
-import android.media.session.MediaController;
-import android.media.session.MediaSessionManager;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.IBinder;
@@ -31,33 +23,19 @@ import android.preference.PreferenceManager;
 import android.util.Base64;
 import android.util.Log;
 import android.view.View;
-import android.widget.Toast;
 
 import androidx.annotation.Nullable;
-import androidx.core.app.ActivityCompat;
-import androidx.core.content.ContextCompat;
 
 import com.miteos.activity.R;
 import com.google.gson.Gson;
 import com.miteos.service.data.NotificationBundle;
-import com.miteos.service.gatt.SampleGattAttributes;
 import com.miteos.service.handlers.MediaHandler;
+import com.miteos.service.handlers.CalendarHandler;
 
 import java.io.ByteArrayOutputStream;
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
 import java.util.UUID;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-import java.util.concurrent.Future;
-import java.util.concurrent.TimeUnit;
-import java.util.concurrent.TimeoutException;
-import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.concurrent.atomic.AtomicReference;
-import java.util.concurrent.locks.Condition;
-import java.util.concurrent.locks.Lock;
-import java.util.concurrent.locks.ReentrantLock;
 
 public class MainService extends Service {
 
@@ -78,6 +56,7 @@ public class MainService extends Service {
     private static final String NEXT_PLAYBACK = "NEXT_PLAYBACK=";
     private static final String PREVIOUS_PLAYBACK = "PREVIOUS_PLAYBACK=";
     private static final String GET_CONFIGURATION = "GET_CONFIGURATION=";
+    private static final String GET_CALENDAR = "GET_CALENDAR=";
 
     // Actions
     public final static String NOTIFICATION_ACTION = "com.miteos.NOTIFICATION_LISTENER_EXAMPLE";
@@ -261,6 +240,9 @@ public class MainService extends Service {
                         String tokens = prefs.getString("totp_list_items", "[]");
 
                         sendData("{ \"hassUrl\": \"" + haasUrl + "\", \"hassTkn\": \"" + haasToken + "\", \"entities\": " + entities + ", \"totp\": " + tokens + " }");
+                    }else if(data.startsWith(GET_CALENDAR)) {
+                        Log.d(TAG, "Command: Get Calendar");
+                        sendData(CalendarHandler.getUpcomingEvents().toString());
                     } else {
                         Log.e(TAG, "Unknown command: " + data);
                     }

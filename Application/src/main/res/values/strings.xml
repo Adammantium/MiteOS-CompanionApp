@@ -15,74 +15,38 @@
 <resources>
 
     <string name="app_name">MiteOS Companion</string>
-    <string name="ble_not_supported">BLE is not supported</string>
-
-    <string name="no_data">No data</string>
+    <string name="action_settings">Settings</string>
+    <string name="action_scan">Scan</string>
+    <string name="action_stop">Stop</string>
+    <string name="unknown_device">Unknown device</string>
+    <string name="unknown_characteristic">Unknown characteristic</string>
+    <string name="unknown_service">Unknown service</string>
     <string name="connected">Connected</string>
     <string name="disconnected">Disconnected</string>
     <string name="title_devices">BLE Device Scan</string>
     <string name="error_bluetooth_not_supported">Bluetooth not supported.</string>
-
-    <string name="unknown_device">Unknown device</string>
-    <string name="unknown_characteristic">Unknown characteristic</string>
-    <string name="unknown_service">Unknown service</string>
-
-    <!-- Menu items -->
-    <string name="menu_connect">Connect</string>
-    <string name="menu_disconnect">Disconnect</string>
+    <string name="ble_not_supported">BLE is not supported</string>
+    <string name="error_bluetooth_not_enabled">Bluetooth not enabled</string>
+    <string name="menu_settings">Settings</string>
     <string name="menu_scan">Scan</string>
     <string name="menu_stop">Stop</string>
+    <string name="permission_request">The application needs location permission to search for nearby Bluetooth devices. When the application is not in use or in the background it does not use the location service</string>
     <string name="permissions_denied">Permission denied</string>
-
-    <string name="reset">Reset BT device</string>
-    <string name="check_updates">Check for updates</string>
-
-    <string name="device_name">Device name: %s</string>
-    <string name="device_address">Device address: %s</string>
-    <string name="device_state">"State: %s"</string>
-
-    <string name="permission_request">The application needs the right of location to search for nearby bluetooth devices. When the application is not in use or in the background it does not use the location service</string>
-    <string name="menu_settings">Settings</string>
-    <string name="device_not_connected">Device not connected</string>
-    <string name="init">Init</string>
-    <string name="title_activity_overview">OverviewActivity</string>
-
-    <!-- Preference Titles -->
     <string name="watch_pair_header">Watch Pair</string>
-    <string name="messages_header">Messages</string>
-    <string name="sync_header">Sync</string>
-
-    <!-- Messages Preferences -->
-    <string name="signature_title">Your signature</string>
-    <string name="reply_title">Default reply action</string>
-
-    <!-- Sync Preferences -->
-    <string name="sync_title">Sync email periodically</string>
-    <string name="attachment_title">Download incoming attachments</string>
-    <string name="attachment_summary_on">Automatically download attachments for incoming emails
-    </string>
-    <string name="attachment_summary_off">Only download attachments when manually requested</string>
     <string name="pair_new_watch">Pair Watch</string>
+    <string name="pair_watch_summary">Pair your watch with the app</string>
     <string name="hass_header">Home Assistant</string>
     <string name="hass_url">Home Assistant URL</string>
+    <string name="hass_url_summary">Enter your Home Assistant URL</string>
     <string name="hass_token">Home Assistant API Token</string>
-    <string name="test">test</string>
-
-    <string name="hass_list_header">Home Assistant Entities</string>
-    <string name="hass_list_add">Add New Entity</string>
-    <string name="hass_list_name">Name</string>
-    <string name="hass_list_key">Entity ID</string>
+    <string name="hass_token_summary">Enter your Home Assistant API Token</string>
+    <string name="hass_list_manage">Manage Home Assistant Entities</string>
+    <string name="hass_list_manage_summary">Add or remove Home Assistant entities</string>
     <string name="hass_list_add_dialog_title">Add New Entity</string>
     <string name="hass_list_empty">No entities added yet</string>
-    <string name="hass_list_manage">Manage Entities</string>
+    <string name="hass_list_name">Entity Name</string>
+    <string name="hass_list_key">Entity Key</string>
     <string name="hass_list_edit">Edit Entity</string>
-
-    <!-- Media Playback Settings -->
-    <string name="media_playback_header">Media Playback</string>
-    <string name="dither_album_cover_title">Dither Album Cover</string>
-    <string name="dither_album_cover_summary">Apply dithering to album covers to improve display on e-paper screens</string>
-
-    <!-- TOTP Settings -->
     <string name="totp_header">TOTP Authentication</string>
     <string name="totp_list_manage">Manage TOTP Entries</string>
     <string name="totp_list_add_dialog_title">Add New TOTP Entry</string>
@@ -90,5 +54,14 @@
     <string name="totp_list_name">Account Name</string>
     <string name="totp_list_token">Secret Token</string>
     <string name="totp_list_edit">Edit TOTP Entry</string>
+    <string name="calendar_header">Calendar Sync</string>
+    <string name="calendar_list_manage">Manage Calendar Sync</string>
+    <string name="calendar_list_empty">No calendars available</string>
+    <string name="calendar_list_title">Select Calendars to Sync</string>
+    <string name="calendar_list_summary">Choose which calendars to sync with your watch</string>
+    <string name="calendar_permission_required">Calendar permission is required to sync events</string>
+    <string name="media_playback_header">Media Playback</string>
+    <string name="dither_album_cover">Dither Album Cover</string>
+    <string name="dither_album_cover_summary">Dither album cover images for better display on e-ink screens</string>
 
 </resources>

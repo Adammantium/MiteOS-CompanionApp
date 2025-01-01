@@ -2,9 +2,7 @@ package com.miteos.activity;
 
 import android.Manifest;
 import android.annotation.SuppressLint;
-import android.app.ActionBar;
 import android.app.Activity;
-import android.app.ListActivity;
 import android.bluetooth.BluetoothAdapter;
 import android.bluetooth.BluetoothDevice;
 import android.bluetooth.BluetoothManager;
@@ -29,9 +27,7 @@ import android.view.MenuItem;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.BaseAdapter;
-import android.widget.Button;
 import android.widget.ListView;
-import android.widget.RelativeLayout;
 import android.widget.TextView;
 import android.widget.Toast;
 
@@ -44,7 +40,6 @@ import com.google.android.material.floatingactionbutton.FloatingActionButton;
 import com.google.android.material.card.MaterialCardView;
 import com.google.android.material.button.MaterialButton;
 
-import com.miteos.activity.R;
 import com.miteos.service.BLE_Service;
 import com.miteos.service.MainService;
 
@@ -207,6 +202,12 @@ public class MainActivity extends AppCompatActivity {
 
         mHandler = new Handler(Looper.getMainLooper());
 
+        // Register for broadcasts when a device is discovered
+        IntentFilter filter = new IntentFilter();
+        filter.addAction(BluetoothDevice.ACTION_FOUND);
+        filter.addAction(BluetoothAdapter.ACTION_DISCOVERY_FINISHED);
+        registerReceiver(mBluetoothReceiver, filter);
+
         // Initialize remaining components
         initializeListeners();
         checkPermissions();
@@ -221,6 +222,13 @@ public class MainActivity extends AppCompatActivity {
 
         updateConnectionState(R.string.disconnected);
         startMyService();
+    }
+
+    @Override
+    protected void onDestroy() {
+        super.onDestroy();
+        // Don't forget to unregister the receiver
+        unregisterReceiver(mBluetoothReceiver);
     }
 
     ///////////////////////
@@ -385,21 +393,33 @@ public class MainActivity extends AppCompatActivity {
         if (enable) {
             // Stops scanning after a predefined scan period.
             mHandler.postDelayed(() -> {
-                mScanning = false;
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
                     if (ActivityCompat.checkSelfPermission(MainActivity.this, Manifest.permission.BLUETOOTH_SCAN) != PackageManager.PERMISSION_GRANTED) {
                         Log.e(TAG, "checkSelfPermission failed: BLUETOOTH_SCAN");
                         return;
                     }
                 }
-                mBluetoothAdapter.stopLeScan(mLeScanCallback);
+                mBluetoothAdapter.cancelDiscovery();
                 fabScan.setImageResource(android.R.drawable.ic_search_category_default);
             }, SCAN_PERIOD);
 
             mScanning = true;
             listContainer.setVisibility(View.VISIBLE);
             fabScan.setImageResource(android.R.drawable.ic_menu_close_clear_cancel);
-            mBluetoothAdapter.startLeScan(mLeScanCallback);
+            
+            // Clear old results before starting new scan
+            if (mLeDeviceListAdapter != null) {
+                mLeDeviceListAdapter.clear();
+                mLeDeviceListAdapter.notifyDataSetChanged();
+            }
+
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                if (ActivityCompat.checkSelfPermission(this, Manifest.permission.BLUETOOTH_SCAN) != PackageManager.PERMISSION_GRANTED) {
+                    Log.e(TAG, "checkSelfPermission failed: BLUETOOTH_SCAN");
+                    return;
+                }
+            }
+            mBluetoothAdapter.startDiscovery();
         } else {
             mScanning = false;
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
@@ -408,7 +428,7 @@ public class MainActivity extends AppCompatActivity {
                     return;
                 }
             }
-            mBluetoothAdapter.stopLeScan(mLeScanCallback);
+            mBluetoothAdapter.cancelDiscovery();
             fabScan.setImageResource(android.R.drawable.ic_search_category_default);
             // Remove any pending scan timeout
             mHandler.removeCallbacksAndMessages(null);
@@ -511,6 +531,35 @@ public class MainActivity extends AppCompatActivity {
         }
     };
 
+    private final BroadcastReceiver mBluetoothReceiver = new BroadcastReceiver() {
+        @Override
+        public void onReceive(Context context, Intent intent) {
+            String action = intent.getAction();
+            if (BluetoothDevice.ACTION_FOUND.equals(action)) {
+                BluetoothDevice device = intent.getParcelableExtra(BluetoothDevice.EXTRA_DEVICE);
+                if (device != null && device.getType() == BluetoothDevice.DEVICE_TYPE_LE) {
+                    Log.d(TAG, "Device found: " + device.getAddress() + 
+                          " Name: " + (device.getName() != null ? device.getName() : "Unknown"));
+                    runOnUiThread(() -> {
+                        if (mLeDeviceListAdapter != null) {
+                            mLeDeviceListAdapter.addDevice(device);
+                            mLeDeviceListAdapter.notifyDataSetChanged();
+                            Log.d(TAG, "Device added to adapter, total devices: " + mLeDeviceListAdapter.getCount());
+                        } else {
+                            Log.e(TAG, "Adapter is null in onReceive!");
+                        }
+                    });
+                }
+            } else if (BluetoothAdapter.ACTION_DISCOVERY_FINISHED.equals(action)) {
+                mScanning = false;
+                if (fabScan != null) {
+                    fabScan.setImageResource(android.R.drawable.ic_search_category_default);
+                }
+                invalidateOptionsMenu();
+            }
+        }
+    };
+
     @Override
     public boolean onCreateOptionsMenu(Menu menu) {
         getMenuInflater().inflate(R.menu.main, menu);
@@ -543,28 +592,6 @@ public class MainActivity extends AppCompatActivity {
         }
         return true;
     }
-
-    // Device scan callback.
-    private BluetoothAdapter.LeScanCallback mLeScanCallback =
-            new BluetoothAdapter.LeScanCallback() {
-                @Override
-                public void onLeScan(final BluetoothDevice device, int rssi, byte[] scanRecord) {
-                    Log.d(TAG, "Device found: " + device.getAddress() + 
-                          " Name: " + (device.getName() != null ? device.getName() : "Unknown"));
-                    runOnUiThread(new Runnable() {
-                        @Override
-                        public void run() {
-                            if (mLeDeviceListAdapter != null) {
-                                mLeDeviceListAdapter.addDevice(device);
-                                mLeDeviceListAdapter.notifyDataSetChanged();
-                                Log.d(TAG, "Device added to adapter, total devices: " + mLeDeviceListAdapter.getCount());
-                            } else {
-                                Log.e(TAG, "Adapter is null in onLeScan!");
-                            }
-                        }
-                    });
-                }
-            };
 
     //////////////////////
     // Internal Classes //

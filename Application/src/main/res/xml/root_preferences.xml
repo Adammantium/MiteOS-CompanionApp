@@ -44,11 +44,22 @@
     </PreferenceCategory>
 
     <PreferenceCategory
+        app:title="@string/calendar_header">
+
+        <Preference
+            app:key="calendar_list_manage"
+            app:persistent="false"
+            app:title="@string/calendar_list_manage"
+            app:summary="@string/calendar_list_summary"/>
+
+    </PreferenceCategory>
+
+    <PreferenceCategory
         app:title="@string/media_playback_header">
 
-        <SwitchPreferenceCompat
+        <CheckBoxPreference
             app:key="dither_album_cover"
-            app:title="@string/dither_album_cover_title"
+            app:title="@string/dither_album_cover"
             app:summary="@string/dither_album_cover_summary"
             app:defaultValue="false"/>
 

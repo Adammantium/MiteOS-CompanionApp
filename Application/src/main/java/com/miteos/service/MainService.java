@@ -64,6 +64,7 @@ public class MainService extends Service {
 
     // Global variables
     private boolean mConnected = false;
+    private boolean transmitting = false;
     private String mDeviceAddress;
     private BLE_Service mBLEService;
     private NotificationReceiver nReceiver = new NotificationReceiver();
@@ -291,6 +292,7 @@ public class MainService extends Service {
             Log.e(TAG, "Not connected to device");
             return;
         }
+        if(transmitting) return;
 
         if (mWriteCharacteristic == null) {
             Log.e(TAG, "Write characteristic not available");
@@ -299,7 +301,7 @@ public class MainService extends Service {
         }
 
         // Use the negotiated MTU size, accounting for ATT overhead
-        int maxChunkSize = mMtuSize - 3; // ATT overhead is 3 bytes
+        int maxChunkSize = mMtuSize - 8; // ATT overhead is 3 bytes
         int length = data.length();
         int offset = 0;
 
@@ -307,8 +309,10 @@ public class MainService extends Service {
 
         // Create a handler for delayed writes
         Handler writeHandler = new Handler(Looper.getMainLooper());
-        final int WRITE_DELAY_MS = 50; // 50ms delay between writes
+        final int WRITE_DELAY_MS = 100; // 100ms delay between writes
 
+
+        transmitting = true;
         while (offset < length) {
             final int currentOffset = offset;
             int chunkSize = Math.min(maxChunkSize, length - offset);
@@ -325,6 +329,10 @@ public class MainService extends Service {
                 // Set write type to no response for faster transmission
                 mWriteCharacteristic.setWriteType(BluetoothGattCharacteristic.WRITE_TYPE_NO_RESPONSE);
                 mBLEService.writeCharacteristic(mWriteCharacteristic);
+
+                if((currentOffset/maxChunkSize + 1) == ((length + maxChunkSize - 1)/maxChunkSize)) {
+                    transmitting = false;
+                }
             }, (currentOffset/maxChunkSize) * WRITE_DELAY_MS);
 
             offset += chunkSize;

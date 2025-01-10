@@ -82,6 +82,10 @@ public class OverviewActivity extends AppCompatActivity {
             // Handle Home Assistant API Token preference
             setupHassTokenPreference();
 
+            setupOpenWeatherUrlPreference();
+            setupOpenWeatherTempPreference();
+            setupOpenWeatherCityPreference();
+
             // Handle Home Assistant List Management
             setupHassListManagement();
 
@@ -400,6 +404,129 @@ public class OverviewActivity extends AppCompatActivity {
             });
             deleteBuilder.setPositiveButton("Cancel", (dialog, which) -> dialog.dismiss());
             deleteBuilder.show();
+        }
+
+        private void setupOpenWeatherUrlPreference() {
+            Preference owmToken = findPreference("owm_token");
+            if (owmToken != null) {
+                SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(getContext());
+                String currentToken = prefs.getString("owm_token", "");
+                owmToken.setSummary(currentToken.isEmpty() ? "Not set" : "********");
+
+                owmToken.setOnPreferenceClickListener(preference -> {
+                    try {
+                        Context context = getContext();
+                        AlertDialog.Builder builder = new AlertDialog.Builder(context);
+                        builder.setTitle(R.string.open_weather_map_token);
+
+                        final EditText input = new EditText(context);
+                        input.setInputType(InputType.TYPE_CLASS_TEXT);
+                        input.setText(currentToken);
+                        input.setSelectAllOnFocus(true);
+
+                        LinearLayout layout = new LinearLayout(context);
+                        layout.setOrientation(LinearLayout.VERTICAL);
+                        layout.setPadding(50, 20, 50, 0);
+                        layout.addView(input);
+
+                        builder.setView(layout);
+
+                        builder.setPositiveButton("OK", (dialog, which) -> {
+                            String url = input.getText().toString().trim();
+
+                            SharedPreferences.Editor editor = prefs.edit();
+                            editor.putString("owm_token", url);
+                            editor.apply();
+                            owmToken.setSummary("********");
+                            Toast.makeText(context, "Token updated", Toast.LENGTH_SHORT).show();
+                        });
+                        builder.setNegativeButton("Cancel", (dialog, which) -> dialog.cancel());
+
+                        builder.show();
+                        return true;
+                    } catch (Exception e) {
+                        Log.e("Preferences", "Error showing URL dialog", e);
+                        return false;
+                    }
+                });
+            }
+        }
+
+        private void setupOpenWeatherCityPreference() {
+            Preference owmCity = findPreference("owm_city");
+            if (owmCity != null) {
+                SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(getContext());
+                String currentCity = prefs.getString("owm_city", "5128581");
+                owmCity.setSummary(currentCity);
+
+                owmCity.setOnPreferenceClickListener(preference -> {
+                    try {
+                        Context context = getContext();
+                        AlertDialog.Builder builder = new AlertDialog.Builder(context);
+                        builder.setTitle(R.string.open_weather_map_token);
+
+                        final EditText input = new EditText(context);
+                        input.setInputType(InputType.TYPE_CLASS_TEXT);
+                        input.setText(currentCity);
+                        input.setSelectAllOnFocus(true);
+
+                        LinearLayout layout = new LinearLayout(context);
+                        layout.setOrientation(LinearLayout.VERTICAL);
+                        layout.setPadding(50, 20, 50, 0);
+                        layout.addView(input);
+
+                        builder.setView(layout);
+
+                        builder.setPositiveButton("OK", (dialog, which) -> {
+                            String city = input.getText().toString().trim();
+                            if (!city.isEmpty()) {
+                                SharedPreferences.Editor editor = prefs.edit();
+                                editor.putString("owm_city", city);
+                                editor.apply();
+                                owmCity.setSummary(city);
+                                Toast.makeText(context, "City updated", Toast.LENGTH_SHORT).show();
+                            }
+                        });
+                        builder.setNegativeButton("Cancel", (dialog, which) -> dialog.cancel());
+
+                        builder.show();
+                        return true;
+                    } catch (Exception e) {
+                        Log.e("Preferences", "Error showing URL dialog", e);
+                        return false;
+                    }
+                });
+            }
+        }
+
+        private void setupOpenWeatherTempPreference() {
+            Preference owmUnit = findPreference("owm_unit");
+            if (owmUnit != null) {
+                SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(getContext());
+                String currentUnit = prefs.getString("owm_unit", "metric");
+                owmUnit.setSummary(currentUnit);
+
+                owmUnit.setOnPreferenceClickListener(preference -> {
+                    final String[] options = {"metric", "imperial"};
+
+                    AlertDialog.Builder builder = new AlertDialog.Builder(getContext());
+                    builder.setTitle("Select a unit system");
+                    builder.setItems(options, (dialog, which) -> {
+                        String selectedOption = options[which];
+                        Log.d("UnitSelection", "Selected option: " + selectedOption);
+
+                        SharedPreferences.Editor editor = prefs.edit();
+                        editor.putString("owm_unit", selectedOption);
+                        editor.apply();
+                        owmUnit.setSummary(selectedOption);
+                    });
+                    builder.setCancelable(true);
+
+                    AlertDialog dialog = builder.create();
+                    dialog.show();
+                    return true;
+                });
+            }
         }
 
         private void setupTotpListManagement() {

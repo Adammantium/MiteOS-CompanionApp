@@ -63,5 +63,9 @@
     <string name="media_playback_header">Media Playback</string>
     <string name="dither_album_cover">Dither Album Cover</string>
     <string name="dither_album_cover_summary">Dither album cover images for better display on e-ink screens</string>
+    <string name="open_weather_map">OpenWeatherMap</string>
+    <string name="open_weather_map_city">City ID</string>
+    <string name="open_weather_map_token">API Token</string>
+    <string name="open_weather_map_temp_unit">Temp Unit</string>
 
 </resources>

@@ -240,7 +240,11 @@ public class MainService extends Service {
 
                         String tokens = prefs.getString("totp_list_items", "[]");
 
-                        sendData("{ \"hassUrl\": \"" + haasUrl + "\", \"hassTkn\": \"" + haasToken + "\", \"entities\": " + entities + ", \"totp\": " + tokens + " }");
+                        String owmCity = prefs.getString("owm_city", "5128581");
+                        String owmApi = prefs.getString("owm_token", "");
+                        String owmUnit = prefs.getString("owm_unit", "metric");
+
+                        sendData("{ \"hassUrl\": \"" + haasUrl + "\", \"hassTkn\": \"" + haasToken + "\", \"entities\": " + entities + ", \"totp\": " + tokens + ", \"owmApi\": \"" + owmApi + "\", \"owmUnit\": \"" + owmUnit + "\", \"owmCity\": \"" + owmCity + "\" }");
                     }else if(data.startsWith(GET_CALENDAR)) {
                         Log.d(TAG, "Command: Get Calendar");
                         sendData(CalendarHandler.getUpcomingEvents().toString());

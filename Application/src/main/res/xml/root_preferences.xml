@@ -13,6 +13,25 @@
 
     </PreferenceCategory>
 
+    <PreferenceCategory
+        app:title="@string/open_weather_map">
+
+        <Preference
+            app:key="owm_city"
+            app:persistent="false"
+            app:title="@string/open_weather_map_city"/>
+
+        <Preference
+            app:key="owm_token"
+            app:persistent="false"
+            app:title="@string/open_weather_map_token"/>
+
+        <Preference
+            app:key="owm_unit"
+            app:persistent="false"
+            app:title="@string/open_weather_map_temp_unit"/>
+
+    </PreferenceCategory>
     <PreferenceCategory 
         app:title="@string/hass_header">
 

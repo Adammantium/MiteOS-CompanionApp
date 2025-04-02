@@ -1,32 +1,21 @@
 package com.miteos.service.handlers;
 
-import android.app.Notification;
-import android.app.NotificationChannel;
-import android.app.NotificationManager;
 import android.content.ComponentName;
 import android.content.Context;
 import android.content.SharedPreferences;
 import android.graphics.Bitmap;
 import android.graphics.Color;
-import android.graphics.drawable.Icon;
 import android.media.MediaMetadata;
 import android.media.session.MediaController;
 import android.media.session.MediaSessionManager;
 import android.media.session.PlaybackState;
-import android.provider.MediaStore;
-import android.util.Log;
 
 import androidx.annotation.NonNull;
-import androidx.core.app.NotificationCompat;
-import androidx.core.graphics.drawable.IconCompat;
 import androidx.preference.PreferenceManager;
 
-import com.miteos.activity.MainActivity;
-import com.miteos.func.SteinbergDithering;import com.miteos.service.MainService;
+import com.miteos.func.SteinbergDithering;
+import com.miteos.service.MainService;
 
-import java.io.ByteArrayOutputStream;import java.lang.reflect.Array;
-import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Base64;
 import java.util.BitSet;
 
@@ -153,19 +142,8 @@ public class MediaHandler {
             bmp = SteinbergDithering.floydSteinbergDithering(bmp);
         }
 
-        /*ByteArrayOutputStream byteArrayOutputStream = new ByteArrayOutputStream();
-        bmp.compress(Bitmap.CompressFormat.PNG, 100, byteArrayOutputStream);
-        byte[] byteArray = byteArrayOutputStream .toByteArray();
-        Log.e("1", Base64.getEncoder().encodeToString(byteArray));*/
+        boolean[] bits = new boolean[size * size];
 
-        /*byteArrayOutputStream = new ByteArrayOutputStream();
-        bmp.compress(Bitmap.CompressFormat.PNG, 100, byteArrayOutputStream);
-        byteArray = byteArrayOutputStream .toByteArray();
-        Log.e("2", Base64.getEncoder().encodeToString(byteArray));*/
-
-        boolean bits[] = new boolean[size * size];
-
-        //String test = "";
         for (int y = 0; y < bmp.getHeight(); y++) {
             for (int x = 0; x < bmp.getWidth(); x++) {
                 Color clr = bmp.getColor(x, y);
@@ -173,32 +151,6 @@ public class MediaHandler {
                 bits[x + y * size] = clr.red() > 0.5;
             }
         }
-
-        /*
-        String test = "";
-        for (int y = 0; y < bmp.getHeight(); y++) {
-            for (int x = 0; x < bmp.getWidth(); x++) {
-                if(bits[x + y * size]) test += "1";
-                else test += "0";
-            }
-        }
-        */
-
-        /*
-        NotificationChannel channel = new NotificationChannel("com.example.TEST_CHANNEL", "Test-Channel",  NotificationManager.IMPORTANCE_DEFAULT);
-        channel.setDescription("PennSkanvTic channel for foreground service notification");
-
-        NotificationManager notificationManager = (NotificationManager) MainService.instance.getSystemService(Context.NOTIFICATION_SERVICE);
-        notificationManager.createNotificationChannel(channel);
-
-        Notification notification = new NotificationCompat.Builder(MainService.instance, "com.example.TEST_CHANNEL")
-                .setContentTitle("Test")
-                .setContentText("Test")
-                .setSmallIcon(IconCompat.createWithBitmap(bmp))
-                .setLargeIcon(bmp)
-                .build();
-        notificationManager.notify(1, notification);
-        */
 
         return Base64.getEncoder().encodeToString(toByteArray(bits));
     }

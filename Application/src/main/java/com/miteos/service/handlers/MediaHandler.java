@@ -71,6 +71,8 @@ public class MediaHandler {
         if(sessions.isEmpty()) return null;
 
         for(MediaController session : sessions) {
+            if(session == null || session.getPlaybackState() == null || session.getPlaybackState().getState() == PlaybackState.STATE_NONE) continue;
+
             if(session.getPlaybackState().getState() == PlaybackState.STATE_PLAYING) {
                 return session;
             }

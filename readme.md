@@ -2,8 +2,6 @@
 
 Basic communication between Android and Watchy using MiteOS
 - Basic notifications functionality
-
-Planned Features:
 - Media Control
 - Calendar Sync and Reminders
 - Configuration through App

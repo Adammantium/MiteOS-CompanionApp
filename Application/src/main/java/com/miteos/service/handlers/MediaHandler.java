@@ -52,7 +52,7 @@ public class MediaHandler {
             position = controller.getPlaybackState().getPosition() / 1000;
             duration = controller.getMetadata().getLong(MediaMetadata.METADATA_KEY_DURATION) / 1000;
             timestamp = System.currentTimeMillis() / 1000;
-            playing = controller.getPlaybackState().isActive();
+            playing = controller.getPlaybackState().getState() == PlaybackState.STATE_PLAYING;
 
             art = MediaHandler.GenerateImage(controller.getMetadata().getBitmap(MediaMetadata.METADATA_KEY_ALBUM_ART));
         }

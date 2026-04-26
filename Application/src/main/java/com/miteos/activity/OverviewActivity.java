@@ -84,6 +84,8 @@ public class OverviewActivity extends AppCompatActivity {
 
             setupOpenWeatherUrlPreference();
             setupOpenWeatherTempPreference();
+            setupOpenWeatherLonPreference();
+            setupOpenWeatherLatPreference();
             setupOpenWeatherCityPreference();
 
             // Handle Home Assistant List Management
@@ -451,6 +453,101 @@ public class OverviewActivity extends AppCompatActivity {
                 });
             }
         }
+
+
+        private void setupOpenWeatherLatPreference() {
+            Preference owmLat = findPreference("owm_lat");
+            if (owmLat != null) {
+                SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(getContext());
+                String currentLat = prefs.getString("owm_lat", "");
+                owmLat.setSummary(currentLat);
+
+                owmLat.setOnPreferenceClickListener(preference -> {
+                    try {
+                        Context context = getContext();
+                        AlertDialog.Builder builder = new AlertDialog.Builder(context);
+                        builder.setTitle(R.string.open_weather_map_lat);
+
+                        final EditText input = new EditText(context);
+                        input.setInputType(InputType.TYPE_CLASS_TEXT);
+                        input.setText(currentLat);
+                        input.setSelectAllOnFocus(true);
+
+                        LinearLayout layout = new LinearLayout(context);
+                        layout.setOrientation(LinearLayout.VERTICAL);
+                        layout.setPadding(50, 20, 50, 0);
+                        layout.addView(input);
+
+                        builder.setView(layout);
+
+                        builder.setPositiveButton("OK", (dialog, which) -> {
+                            String val = input.getText().toString().trim();
+
+                            SharedPreferences.Editor editor = prefs.edit();
+                            editor.putString("owm_lat", val);
+                            editor.apply();
+                            owmLat.setSummary(val);
+                            Toast.makeText(context, "Lat updated", Toast.LENGTH_SHORT).show();
+                        });
+                        builder.setNegativeButton("Cancel", (dialog, which) -> dialog.cancel());
+
+                        builder.show();
+                        return true;
+                    } catch (Exception e) {
+                        Log.e("Preferences", "Error showing URL dialog", e);
+                        return false;
+                    }
+                });
+            }
+        }
+
+        private void setupOpenWeatherLonPreference() {
+            Preference owmLong = findPreference("owm_lon");
+            if (owmLong != null) {
+                SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(getContext());
+                String currentLat = prefs.getString("owm_lon", "");
+                owmLong.setSummary(currentLat);
+
+                owmLong.setOnPreferenceClickListener(preference -> {
+                    try {
+                        Context context = getContext();
+                        AlertDialog.Builder builder = new AlertDialog.Builder(context);
+                        builder.setTitle(R.string.open_weather_map_lat);
+
+                        final EditText input = new EditText(context);
+                        input.setInputType(InputType.TYPE_CLASS_TEXT);
+                        input.setText(currentLat);
+                        input.setSelectAllOnFocus(true);
+
+                        LinearLayout layout = new LinearLayout(context);
+                        layout.setOrientation(LinearLayout.VERTICAL);
+                        layout.setPadding(50, 20, 50, 0);
+                        layout.addView(input);
+
+                        builder.setView(layout);
+
+                        builder.setPositiveButton("OK", (dialog, which) -> {
+                            String val = input.getText().toString().trim();
+
+                            SharedPreferences.Editor editor = prefs.edit();
+                            editor.putString("owm_lon", val);
+                            editor.apply();
+                            owmLong.setSummary(val);
+                            Toast.makeText(context, "Lon updated", Toast.LENGTH_SHORT).show();
+                        });
+                        builder.setNegativeButton("Cancel", (dialog, which) -> dialog.cancel());
+
+                        builder.show();
+                        return true;
+                    } catch (Exception e) {
+                        Log.e("Preferences", "Error showing URL dialog", e);
+                        return false;
+                    }
+                });
+            }
+        }
+
+
 
         private void setupOpenWeatherCityPreference() {
             Preference owmCity = findPreference("owm_city");

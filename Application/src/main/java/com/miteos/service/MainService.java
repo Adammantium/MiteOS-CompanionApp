@@ -241,10 +241,12 @@ public class MainService extends Service {
                         String tokens = prefs.getString("totp_list_items", "[]");
 
                         String owmCity = prefs.getString("owm_city", "5128581");
+                        String owmLat = prefs.getString("owm_lat", "");
+                        String owmLon = prefs.getString("owm_lon", "");
                         String owmApi = prefs.getString("owm_token", "");
                         String owmUnit = prefs.getString("owm_unit", "metric");
 
-                        sendData("{ \"hassUrl\": \"" + haasUrl + "\", \"hassTkn\": \"" + haasToken + "\", \"entities\": " + entities + ", \"totp\": " + tokens + ", \"owmApi\": \"" + owmApi + "\", \"owmUnit\": \"" + owmUnit + "\", \"owmCity\": \"" + owmCity + "\" }");
+                        sendData("{ \"hassUrl\": \"" + haasUrl + "\", \"hassTkn\": \"" + haasToken + "\", \"entities\": " + entities + ", \"totp\": " + tokens + ", \"owmApi\": \"" + owmApi + "\", \"owmUnit\": \"" + owmUnit + "\", \"owmCity\": \"" + owmCity + "\", \"owmLat\": \"" + owmLat + "\", \"owmLon\": \"" + owmLon + "\" }");
                     }else if(data.startsWith(GET_CALENDAR)) {
                         Log.d(TAG, "Command: Get Calendar");
                         sendData(CalendarHandler.getUpcomingEvents().toString());

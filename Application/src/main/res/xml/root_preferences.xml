@@ -22,6 +22,16 @@
             app:title="@string/open_weather_map_city"/>
 
         <Preference
+            app:key="owm_lat"
+            app:persistent="false"
+            app:title="@string/open_weather_map_lat"/>
+
+        <Preference
+            app:key="owm_lon"
+            app:persistent="false"
+            app:title="@string/open_weather_map_long"/>
+
+        <Preference
             app:key="owm_token"
             app:persistent="false"
             app:title="@string/open_weather_map_token"/>

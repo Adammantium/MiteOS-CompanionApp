@@ -15,6 +15,7 @@ import android.content.pm.PackageManager;
 import android.graphics.Bitmap;
 import android.graphics.Matrix;
 import android.graphics.drawable.Drawable;
+import android.icu.util.TimeZone;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.IBinder;
@@ -33,6 +34,8 @@ import com.miteos.service.handlers.MediaHandler;
 import com.miteos.service.handlers.CalendarHandler;
 
 import java.io.ByteArrayOutputStream;
+import java.time.ZoneId;
+import java.time.ZonedDateTime;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
@@ -246,7 +249,11 @@ public class MainService extends Service {
                         String owmApi = prefs.getString("owm_token", "");
                         String owmUnit = prefs.getString("owm_unit", "metric");
 
-                        sendData("{ \"hassUrl\": \"" + haasUrl + "\", \"hassTkn\": \"" + haasToken + "\", \"entities\": " + entities + ", \"totp\": " + tokens + ", \"owmApi\": \"" + owmApi + "\", \"owmUnit\": \"" + owmUnit + "\", \"owmCity\": \"" + owmCity + "\", \"owmLat\": \"" + owmLat + "\", \"owmLon\": \"" + owmLon + "\" }");
+                        int offsetMillis = TimeZone.getDefault().getOffset(System.currentTimeMillis());
+                        int offsetMinutes = offsetMillis / (1000 * 60);
+
+
+                        sendData("{ \"hassUrl\": \"" + haasUrl + "\", \"hassTkn\": \"" + haasToken + "\", \"entities\": " + entities + ", \"totp\": " + tokens + ", \"owmApi\": \"" + owmApi + "\", \"owmUnit\": \"" + owmUnit + "\", \"owmCity\": \"" + owmCity + "\", \"owmLat\": \"" + owmLat + "\", \"owmLon\": \"" + owmLon + "\", \"tz\": " + offsetMinutes + " }");
                     }else if(data.startsWith(GET_CALENDAR)) {
                         Log.d(TAG, "Command: Get Calendar");
                         sendData(CalendarHandler.getUpcomingEvents().toString());

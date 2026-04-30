@@ -98,6 +98,7 @@ public class NotificationService extends NotificationListenerService {
     // Private functions //
     ///////////////////////
     private String Trim(String data) {
+        if(data == null) return "null";
         if (data.length() > 20) {
             return data.substring(0, 19) + "...";
         } else {

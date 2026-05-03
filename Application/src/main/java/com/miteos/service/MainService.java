@@ -43,6 +43,7 @@ import com.miteos.service.handlers.CalendarHandler;
 import java.io.ByteArrayOutputStream;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
+import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -336,9 +337,9 @@ public class MainService extends Service {
 
                         int offsetMillis = TimeZone.getDefault().getOffset(System.currentTimeMillis());
                         int offsetMinutes = offsetMillis / (1000 * 60);
+                        long time = System.currentTimeMillis();
 
-
-                        sendData("{ \"hassUrl\": \"" + haasUrl + "\", \"hassTkn\": \"" + haasToken + "\", \"entities\": " + entities + ", \"totp\": " + tokens + ", \"owmApi\": \"" + owmApi + "\", \"owmUnit\": \"" + owmUnit + "\", \"owmCity\": \"" + owmCity + "\", \"owmLat\": \"" + owmLat + "\", \"owmLon\": \"" + owmLon + "\", \"tz\": " + offsetMinutes + " }");
+                        sendData("{ \"hassUrl\": \"" + haasUrl + "\", \"hassTkn\": \"" + haasToken + "\", \"entities\": " + entities + ", \"totp\": " + tokens + ", \"owmApi\": \"" + owmApi + "\", \"owmUnit\": \"" + owmUnit + "\", \"owmCity\": \"" + owmCity + "\", \"owmLat\": \"" + owmLat + "\", \"owmLon\": \"" + owmLon + "\", \"tz\": " + offsetMinutes + ", \"time\": " + time + "}");
                     }else if(data.startsWith(GET_CALENDAR)) {
                         Log.d(TAG, "Command: Get Calendar");
                         sendData(CalendarHandler.getUpcomingEvents().toString());

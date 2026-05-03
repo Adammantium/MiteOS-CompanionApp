@@ -27,6 +27,13 @@ import android.view.View;
 
 import androidx.annotation.Nullable;
 
+import com.android.volley.AuthFailureError;
+import com.android.volley.Request;
+import com.android.volley.RequestQueue;
+import com.android.volley.Response;
+import com.android.volley.VolleyError;
+import com.android.volley.toolbox.StringRequest;
+import com.android.volley.toolbox.Volley;
 import com.miteos.activity.R;
 import com.google.gson.Gson;
 import com.miteos.service.data.NotificationBundle;
@@ -34,10 +41,11 @@ import com.miteos.service.handlers.MediaHandler;
 import com.miteos.service.handlers.CalendarHandler;
 
 import java.io.ByteArrayOutputStream;
-import java.time.ZoneId;
-import java.time.ZonedDateTime;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 public class MainService extends Service {
@@ -60,6 +68,8 @@ public class MainService extends Service {
     private static final String PREVIOUS_PLAYBACK = "PREVIOUS_PLAYBACK=";
     private static final String GET_CONFIGURATION = "GET_CONFIGURATION=";
     private static final String GET_CALENDAR = "GET_CALENDAR=";
+    private static final String GET_WEBREQUEST = "WR_GET=";
+    private static final String POST_WEBREQUEST = "WR_POST=";
 
     // Actions
     public final static String NOTIFICATION_ACTION = "com.miteos.NOTIFICATION_LISTENER_EXAMPLE";
@@ -68,6 +78,7 @@ public class MainService extends Service {
     // Global variables
     private boolean mConnected = false;
     private boolean transmitting = false;
+    private boolean hasSentData = false;
     private String mDeviceAddress;
     private BLE_Service mBLEService;
     private NotificationReceiver nReceiver = new NotificationReceiver();
@@ -186,6 +197,75 @@ public class MainService extends Service {
         }
     };
 
+    private final void makeGetRequest(String url) {
+        RequestQueue queue = Volley.newRequestQueue(this);
+
+        Log.d(TAG, "GET " + url);
+        // Request a string response from the provided URL.
+        StringRequest stringRequest = new StringRequest(Request.Method.GET, url,
+                new Response.Listener<String>() {
+                    @Override
+                    public void onResponse(String response) {
+                        Log.d(TAG, "Response: " + response);
+                        // Display the first 500 characters of the response string.
+                        sendData(response);
+                    }
+                }, new Response.ErrorListener() {
+            @Override
+            public void onErrorResponse(VolleyError error) {
+                sendData("ERR");
+            }
+        });
+
+        // Add the request to the RequestQueue.
+        queue.add(stringRequest);
+    }
+
+    private final void makePostRequest(String url, String payload, String authorization, String content_type) throws AuthFailureError {
+        RequestQueue queue = Volley.newRequestQueue(this);
+
+        Log.d(TAG, "POST " + url);
+        // Request a string response from the provided URL.
+        StringRequest stringRequest = new StringRequest(Request.Method.POST, url,
+                new Response.Listener<String>() {
+                    @Override
+                    public void onResponse(String response) {
+                        // Display the first 500 characters of the response string.
+                        sendData(response);
+                    }
+                }, new Response.ErrorListener() {
+            @Override
+            public void onErrorResponse(VolleyError error) {
+                Log.d(TAG, error.toString());
+                sendData("ERR");
+            }
+        }) {
+            @Override
+            public Map<String, String> getHeaders() {
+                Map<String, String> headers = new HashMap<String, String>();
+                // Beispiel für einen Bearer-Token
+                headers.put("Authorization", authorization);
+                return headers;
+            }
+
+            @Override
+            public byte[] getBody() {
+                // Wandelt deinen String in Bytes um
+                return payload == null ? null : payload.getBytes(StandardCharsets.UTF_8);
+            }
+
+            @Override
+            public String getBodyContentType() {
+                // Teilt dem Server mit, welches Format gesendet wird (meist plain text oder json)
+                return content_type + "; charset=utf-8";
+            }
+        };
+
+        // Add the request to the RequestQueue.
+        queue.add(stringRequest);
+    }
+
+    private static String lastAction = "";
     private final BroadcastReceiver mGattUpdateReceiver = new BroadcastReceiver() {
         @Override
         public void onReceive(Context context, Intent intent) {
@@ -193,6 +273,8 @@ public class MainService extends Service {
             Log.d(TAG, "MainService received action: " + action);
 
             if (BLE_Service.ACTION_GATT_CONNECTED.equals(action)) {
+                lastAction = "";
+                hasSentData = false;
                 mConnected = true;
                 Log.i(TAG, getString(R.string.connected));
             } else if (BLE_Service.ACTION_GATT_DISCONNECTED.equals(action)) {
@@ -210,6 +292,9 @@ public class MainService extends Service {
                 Log.i(TAG, "Received data from ESP: " + (data != null ? data : "null"));
 
                 if (data != null) {
+                    if(lastAction.equals(data)) return;
+                    lastAction = data;
+
                     if (data.startsWith(GET_PACKAGE_ICON)) {
                         data = data.replace(GET_PACKAGE_ICON, "");
                         sendApplicationIcon(data);
@@ -257,6 +342,21 @@ public class MainService extends Service {
                     }else if(data.startsWith(GET_CALENDAR)) {
                         Log.d(TAG, "Command: Get Calendar");
                         sendData(CalendarHandler.getUpcomingEvents().toString());
+                    }else if(data.startsWith(GET_WEBREQUEST)) {
+                        Log.d(TAG, "Command: GET WebRequest");
+                        makeGetRequest(data.substring(GET_WEBREQUEST.length()));
+                    }else if(data.startsWith(POST_WEBREQUEST)) {
+                        Log.d(TAG, "Command: POST WebRequest");
+                        String[] parts = data.substring(POST_WEBREQUEST.length()).split(";");
+                        try {
+                            if(parts.length == 2) {
+                                makePostRequest(parts[0], parts[1], "", "");
+                            }else if(parts.length == 4) {
+                                makePostRequest(parts[0], parts[1], parts[2], parts[3]);
+                            }
+                        } catch (AuthFailureError e) {
+                            throw new RuntimeException(e);
+                        }
                     } else {
                         Log.e(TAG, "Unknown command: " + data);
                     }
@@ -301,11 +401,16 @@ public class MainService extends Service {
     }
 
     private void sendData(String data) {
+        sendData(data, false);
+    }
+
+    private void sendData(String data, boolean force) {
         if (!mConnected) {
             Log.e(TAG, "Not connected to device");
             return;
         }
         if(transmitting) return;
+        if(hasSentData && !force) return;
 
         if (mWriteCharacteristic == null) {
             Log.e(TAG, "Write characteristic not available");
@@ -324,7 +429,7 @@ public class MainService extends Service {
         Handler writeHandler = new Handler(Looper.getMainLooper());
         final int WRITE_DELAY_MS = 100; // 100ms delay between writes
 
-
+        hasSentData = true;
         transmitting = true;
         while (offset < length) {
             final int currentOffset = offset;

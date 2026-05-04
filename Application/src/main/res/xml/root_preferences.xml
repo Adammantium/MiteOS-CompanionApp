@@ -16,15 +16,16 @@
     <PreferenceCategory
         app:title="@string/open_weather_map">
 
-        <Preference
-            app:key="owm_city"
-            app:persistent="false"
-            app:title="@string/open_weather_map_city"/>
+        <CheckBoxPreference
+            app:key="owm_static"
+            app:title="@string/open_weather_map_static"
+            app:summary="@string/open_weather_map_static_summary"
+            app:defaultValue="true"/>
 
         <Preference
             app:key="owm_lat"
             app:persistent="false"
-            app:title="@string/open_weather_map_lat"/>
+            app:title="@string/open_weather_map_lat" />
 
         <Preference
             app:key="owm_lon"
@@ -32,9 +33,9 @@
             app:title="@string/open_weather_map_long"/>
 
         <Preference
-            app:key="owm_token"
+            app:key="owm_city"
             app:persistent="false"
-            app:title="@string/open_weather_map_token"/>
+            app:title="@string/open_weather_map_city"/>
 
         <Preference
             app:key="owm_unit"

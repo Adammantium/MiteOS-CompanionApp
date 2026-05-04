@@ -1,5 +1,6 @@
 package com.miteos.service;
 
+import android.Manifest;
 import android.app.Service;
 import android.bluetooth.BluetoothGattCharacteristic;
 import android.bluetooth.BluetoothGattDescriptor;
@@ -16,6 +17,9 @@ import android.graphics.Bitmap;
 import android.graphics.Matrix;
 import android.graphics.drawable.Drawable;
 import android.icu.util.TimeZone;
+import android.location.Address;
+import android.location.Geocoder;
+import android.location.Location;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.IBinder;
@@ -26,6 +30,7 @@ import android.util.Log;
 import android.view.View;
 
 import androidx.annotation.Nullable;
+import androidx.core.app.ActivityCompat;
 
 import com.android.volley.AuthFailureError;
 import com.android.volley.Request;
@@ -34,6 +39,10 @@ import com.android.volley.Response;
 import com.android.volley.VolleyError;
 import com.android.volley.toolbox.StringRequest;
 import com.android.volley.toolbox.Volley;
+import com.google.android.gms.location.FusedLocationProviderClient;
+import com.google.android.gms.location.LocationServices;
+import com.google.android.gms.tasks.OnSuccessListener;
+import com.miteos.activity.MainActivity;
 import com.miteos.activity.R;
 import com.google.gson.Gson;
 import com.miteos.service.data.NotificationBundle;
@@ -46,6 +55,7 @@ import java.util.ArrayList;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.UUID;
 
@@ -71,6 +81,7 @@ public class MainService extends Service {
     private static final String GET_CALENDAR = "GET_CALENDAR=";
     private static final String GET_WEBREQUEST = "WR_GET=";
     private static final String POST_WEBREQUEST = "WR_POST=";
+    private static final String GET_POSITION = "GET_POS=";
 
     // Actions
     public final static String NOTIFICATION_ACTION = "com.miteos.NOTIFICATION_LISTENER_EXAMPLE";
@@ -198,7 +209,55 @@ public class MainService extends Service {
         }
     };
 
-    private final void makeGetRequest(String url) {
+    // Function to get the current location
+    private void getCurrentLocation() {
+        SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(MainService.instance);
+        boolean owmStatic = prefs.getBoolean("owm_static", false);
+        if(owmStatic) {
+            String owmCity = prefs.getString("owm_city", "5128581");
+            String owmLat = prefs.getString("owm_lat", "");
+            String owmLon = prefs.getString("owm_lon", "");
+
+            sendData("{ \"lat\": " + owmLat + ", \"lon\": " + owmLon + ", \"city\": \"" + owmCity + "\"}");
+        }else{
+            FusedLocationProviderClient locationClient = LocationServices.getFusedLocationProviderClient(this);
+            final int LOCATION_PERMISSION_REQUEST = 1001;
+
+            // Check if location permission is granted
+            if (ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
+                // Request permission if not granted
+                //ActivityCompat.requestPermissions(this, new String[]{Manifest.permission.ACCESS_FINE_LOCATION}, LOCATION_PERMISSION_REQUEST);
+                return;
+            }
+
+            // Fetch the last known location
+            locationClient.getLastLocation().addOnSuccessListener(new OnSuccessListener<Location>() {
+                @Override
+                public void onSuccess(Location location) {
+                    if (location != null) {
+                        // Get latitude and longitude
+                        double lat = location.getLatitude();
+                        double lon = location.getLongitude();
+                        String cityName = "";
+                        Geocoder geocoder = new Geocoder(MainService.instance, Locale.getDefault());
+                        try {
+                            // 1 steht für die maximale Anzahl der zurückgegebenen Ergebnisse
+                            List<Address> addresses = geocoder.getFromLocation(lat, lon, 1);
+                            if (addresses != null && !addresses.isEmpty()) {
+                                // getLocality() liefert den Stadtnamen
+                                cityName = addresses.get(0).getLocality();
+                            }
+                        } catch (Exception e) {
+                            e.printStackTrace();
+                        }
+                        sendData("{ \"lat\": " + lat + ", \"lon\": " + lon + ", \"city\": \"" + cityName + "\"}");
+                    }
+                }
+            });
+        }
+    }
+
+    private final void makeGetRequest(String url, String authorization) {
         RequestQueue queue = Volley.newRequestQueue(this);
 
         Log.d(TAG, "GET " + url);
@@ -216,13 +275,21 @@ public class MainService extends Service {
             public void onErrorResponse(VolleyError error) {
                 sendData("ERR");
             }
-        });
+        }) {
+            @Override
+            public Map<String, String> getHeaders() {
+                Map<String, String> headers = new HashMap<String, String>();
+                if(authorization != null && !authorization.isEmpty())
+                    headers.put("Authorization", authorization);
+                return headers;
+            }
+        };
 
         // Add the request to the RequestQueue.
         queue.add(stringRequest);
     }
 
-    private final void makePostRequest(String url, String payload, String authorization, String content_type) throws AuthFailureError {
+    private final void makePostRequest(String url, String payload, String authorization, String content_type) {
         RequestQueue queue = Volley.newRequestQueue(this);
 
         Log.d(TAG, "POST " + url);
@@ -244,8 +311,8 @@ public class MainService extends Service {
             @Override
             public Map<String, String> getHeaders() {
                 Map<String, String> headers = new HashMap<String, String>();
-                // Beispiel für einen Bearer-Token
-                headers.put("Authorization", authorization);
+                if(authorization != null && !authorization.isEmpty())
+                    headers.put("Authorization", authorization);
                 return headers;
             }
 
@@ -294,6 +361,7 @@ public class MainService extends Service {
 
                 if (data != null) {
                     if(lastAction.equals(data)) return;
+                    hasSentData = false;
                     lastAction = data;
 
                     if (data.startsWith(GET_PACKAGE_ICON)) {
@@ -308,7 +376,7 @@ public class MainService extends Service {
                         sendBroadcast(i);
                     } else if(data.startsWith(GET_PLAYBACK_INFO)) {
                         Log.d(TAG, "Command: Get Playback Info");
-                        sendData(new Gson().toJson(MediaHandler.getPlaybackInfos()).replaceAll("[^\\x00-\\x7F]", ""));
+                        sendData(new Gson().toJson(MediaHandler.getPlaybackInfos())); //.replaceAll("[^\\x00-\\x7F]", ""));
                     } else if(data.startsWith(TOGGLE_PLAYBACK)) {
                         Log.d(TAG, "Command: Toggle Playback");
                         MediaHandler.toggle();
@@ -329,35 +397,37 @@ public class MainService extends Service {
 
                         String tokens = prefs.getString("totp_list_items", "[]");
 
-                        String owmCity = prefs.getString("owm_city", "5128581");
-                        String owmLat = prefs.getString("owm_lat", "");
-                        String owmLon = prefs.getString("owm_lon", "");
-                        String owmApi = prefs.getString("owm_token", "");
                         String owmUnit = prefs.getString("owm_unit", "metric");
 
                         int offsetMillis = TimeZone.getDefault().getOffset(System.currentTimeMillis());
                         int offsetMinutes = offsetMillis / (1000 * 60);
                         long time = System.currentTimeMillis();
 
-                        sendData("{ \"hassUrl\": \"" + haasUrl + "\", \"hassTkn\": \"" + haasToken + "\", \"entities\": " + entities + ", \"totp\": " + tokens + ", \"owmApi\": \"" + owmApi + "\", \"owmUnit\": \"" + owmUnit + "\", \"owmCity\": \"" + owmCity + "\", \"owmLat\": \"" + owmLat + "\", \"owmLon\": \"" + owmLon + "\", \"tz\": " + offsetMinutes + ", \"time\": " + time + "}");
+                        sendData("{ \"hassUrl\": \"" + haasUrl + "\", \"hassTkn\": \"" + haasToken + "\", \"entities\": " + entities + ", \"totp\": " + tokens + ", \"owmUnit\": \"" + owmUnit + "\", \"tz\": " + offsetMinutes + ", \"time\": " + time + "}");
                     }else if(data.startsWith(GET_CALENDAR)) {
                         Log.d(TAG, "Command: Get Calendar");
                         sendData(CalendarHandler.getUpcomingEvents().toString());
                     }else if(data.startsWith(GET_WEBREQUEST)) {
                         Log.d(TAG, "Command: GET WebRequest");
-                        makeGetRequest(data.substring(GET_WEBREQUEST.length()));
+                        String[] parts = data.substring(GET_WEBREQUEST.length()).split(";");
+
+                        if(parts.length == 1) {
+                            makeGetRequest(parts[0], "");
+                        }else if(parts.length == 2) {
+                            makeGetRequest(parts[0], parts[1]);
+                        }
                     }else if(data.startsWith(POST_WEBREQUEST)) {
                         Log.d(TAG, "Command: POST WebRequest");
                         String[] parts = data.substring(POST_WEBREQUEST.length()).split(";");
-                        try {
-                            if(parts.length == 2) {
-                                makePostRequest(parts[0], parts[1], "", "");
-                            }else if(parts.length == 4) {
-                                makePostRequest(parts[0], parts[1], parts[2], parts[3]);
-                            }
-                        } catch (AuthFailureError e) {
-                            throw new RuntimeException(e);
+
+                        if (parts.length == 2) {
+                            makePostRequest(parts[0], parts[1], "", "");
+                        } else if (parts.length == 4) {
+                            makePostRequest(parts[0], parts[1], parts[2], parts[3]);
                         }
+                    }else if(data.startsWith(GET_POSITION)) {
+                        Log.d(TAG, "Command: Get GPS Position");
+                        getCurrentLocation();
                     } else {
                         Log.e(TAG, "Unknown command: " + data);
                     }

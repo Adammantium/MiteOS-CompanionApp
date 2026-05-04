@@ -21,6 +21,7 @@ import android.widget.Toast;
 import androidx.appcompat.app.ActionBar;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.app.ActivityCompat;
+import androidx.preference.CheckBoxPreference;
 import androidx.preference.EditTextPreference;
 import androidx.preference.Preference;
 import androidx.preference.PreferenceFragmentCompat;
@@ -82,6 +83,7 @@ public class OverviewActivity extends AppCompatActivity {
             // Handle Home Assistant API Token preference
             setupHassTokenPreference();
 
+            setupWeatherStaticPreference();
             setupOpenWeatherUrlPreference();
             setupOpenWeatherTempPreference();
             setupOpenWeatherLonPreference();
@@ -548,6 +550,36 @@ public class OverviewActivity extends AppCompatActivity {
         }
 
 
+        private void setupWeatherStaticPreference() {
+            Preference owmStatic = findPreference("owm_static");
+            if (owmStatic != null) {
+                owmStatic.setOnPreferenceClickListener(preference -> {
+                    updateWeatherView();
+                    return true;
+                });
+                updateWeatherView();
+            }
+        }
+
+        private void updateWeatherView() {
+            Preference owmStatic = findPreference("owm_static");
+            if (owmStatic != null) {
+                boolean is_static = ((CheckBoxPreference) owmStatic).isChecked();
+                findPreference("owm_city").setVisible(is_static);
+                findPreference("owm_lat").setVisible(is_static);
+                findPreference("owm_lon").setVisible(is_static);
+
+                if(!is_static) {
+                    final int LOCATION_PERMISSION_REQUEST = 1001;
+
+                    // Check if location permission is granted
+                    if (ActivityCompat.checkSelfPermission(this.getContext(), Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
+                        // Request permission if not granted
+                        ActivityCompat.requestPermissions(this.getActivity(), new String[]{Manifest.permission.ACCESS_FINE_LOCATION}, LOCATION_PERMISSION_REQUEST);
+                    }
+                }
+            }
+        }
 
         private void setupOpenWeatherCityPreference() {
             Preference owmCity = findPreference("owm_city");
